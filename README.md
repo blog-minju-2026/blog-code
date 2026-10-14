@@ -8,7 +8,8 @@
 | `backend/` | Django API ([backend/README.md](backend/README.md)) |
 | `Dockerfile` · `docker-compose.yml` | 배포 이미지, 노트북에서 띄워 보기 |
 | `deploy/` · `.github/workflows/deploy.yml` | 학교 서버 배포 ([deploy/README.md](deploy/README.md)) |
-| `docs/` | 기능명세서, API 명세서 |
+
+기능명세서 · API 명세서 같은 문서는 [blog-minju-2026/blog-docs](https://github.com/blog-minju-2026/blog-docs) 저장소에 있다.
 
 ## 노트북에서 Docker 로 띄워 보기
 

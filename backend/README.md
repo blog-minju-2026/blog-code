@@ -1,6 +1,6 @@
 # 한채 백엔드 (Django)
 
-기능은 `docs/기능명세서.md`, API는 `docs/API명세서.md`, DB는 Crowfoot ERD 「한채 블로그 플랫폼」을 따른다.
+기능은 [기능명세서](https://github.com/blog-minju-2026/blog-docs/blob/main/docs/%EA%B8%B0%EB%8A%A5%EB%AA%85%EC%84%B8%EC%84%9C.md), API는 [API명세서](https://github.com/blog-minju-2026/blog-docs/blob/main/docs/API%EB%AA%85%EC%84%B8%EC%84%9C.md)(둘 다 blog-docs 저장소), DB는 Crowfoot ERD 「한채 블로그 플랫폼」을 따른다.
 
 ## 처음 한 번
 
