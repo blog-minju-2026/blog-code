@@ -43,6 +43,7 @@ jobs:
           HANCHAE_DOMAIN: ${{ secrets.HANCHAE_DOMAIN }}
           USE_HTTPS: ${{ secrets.USE_HTTPS }}
           APP_PORT: ${{ secrets.APP_PORT }}
+          APP_PORT_2: ${{ secrets.APP_PORT_2 }}
           DB_ADDRESS: ${{ secrets.DB_ADDRESS }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -58,6 +59,7 @@ jobs:
             printf 'HANCHAE_DOMAIN=%s\n' "$HANCHAE_DOMAIN"
             printf 'USE_HTTPS=%s\n' "${USE_HTTPS:-0}"
             printf 'APP_PORT=%s\n' "$APP_PORT"
+            printf 'APP_PORT_2=%s\n' "$APP_PORT_2"
             printf 'DB_ADDRESS=%s\n' "$DB_ADDRESS"
             printf 'DB_PORT=%s\n' "$DB_PORT"
             printf 'DB_NAME=%s\n' "$DB_NAME"
@@ -68,7 +70,7 @@ jobs:
             printf 'SERVE_MEDIA=1\n'
             printf 'MEDIA_ROOT=/app/media\n'
           } > bundle/hanchae.env
-          for name in DJANGO_SECRET_KEY HANCHAE_DOMAIN APP_PORT DB_ADDRESS DB_PORT DB_NAME DB_USER DB_PASSWORD; do
+          for name in DJANGO_SECRET_KEY HANCHAE_DOMAIN APP_PORT APP_PORT_2 DB_ADDRESS DB_PORT DB_NAME DB_USER DB_PASSWORD; do
             if [ -z "${!name}" ]; then echo "::error::Repository secret $name 이 비어 있어요"; exit 1; fi
           done
           if [ -z "$EMAIL_HOST_USER" ] || [ -z "$EMAIL_HOST_PASSWORD" ]; then

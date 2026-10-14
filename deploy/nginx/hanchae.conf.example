@@ -1,5 +1,14 @@
 # 한채 nginx 설정 예시 (서버 배포 설명서 5단계)
 # 설명서대로 공용 문서의 server { ... } 를 복사해 쓰되, 아래 표시한 줄이 들어 있는지 확인한다.
+# 컨테이너 두 개(APP_PORT · APP_PORT_2)를 upstream 으로 묶어 요청을 번갈아 보낸다. 한쪽이 죽으면 다른 쪽이 받는다.
+
+# upstream 이름은 공용 nginx 전체에서 하나뿐이어야 한다. 다른 학생과 겹치지 않게 도메인으로 짓는다.
+# server { ... } 밖(위)에 둔다.
+upstream hanchae_java21_net {
+    server 127.0.0.1:<내-포트>   max_fails=3 fail_timeout=10s;   # GitHub Secrets 의 APP_PORT
+    server 127.0.0.1:<내-포트-2> max_fails=3 fail_timeout=10s;   # GitHub Secrets 의 APP_PORT_2
+}
+
 server {
     listen 80;
     # 받은 도메인으로 바꾼다. 한채마다 서브도메인을 쓸 수 있으면(와일드카드 DNS) 두 번째 이름도 넣는다.
@@ -10,7 +19,9 @@ server {
     client_max_body_size 12m;
 
     location / {
-        proxy_pass http://127.0.0.1:<내-포트>;   # 설명서의 8300 자리. GitHub Secrets 의 APP_PORT 와 같은 값
+        proxy_pass http://hanchae_java21_net;   # 위 upstream 이름
+        # 한쪽이 꺼져 있거나(배포 중) 502 · 503 을 내면 같은 요청을 다른 쪽으로 다시 보낸다
+        proxy_next_upstream error timeout http_502 http_503;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
