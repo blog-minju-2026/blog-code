@@ -84,30 +84,6 @@
   font-size: 15px;
 }
 
-/* 창호: 기와 지붕 + 적갈색 기둥 틀 + 3x3 문살 */
-.window {
-  flex: 0 1 220px;
-  min-height: 180px;
-  display: flex;
-  flex-direction: column;
-}
-
-.window-roof {
-  height: 24px;
-  background: var(--giwa);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-}
-
-.window-frame {
-  flex: 1;
-  border: 6px solid var(--wood);
-  border-top: none;
-  background:
-    linear-gradient(90deg, transparent calc(33.33% - 1px), var(--line-strong) calc(33.33% - 1px) calc(33.33% + 1px), transparent calc(33.33% + 1px) calc(66.66% - 1px), var(--line-strong) calc(66.66% - 1px) calc(66.66% + 1px), transparent calc(66.66% + 1px)),
-    linear-gradient(180deg, transparent calc(33.33% - 1px), var(--line-strong) calc(33.33% - 1px) calc(33.33% + 1px), transparent calc(33.33% + 1px) calc(66.66% - 1px), var(--line-strong) calc(66.66% - 1px) calc(66.66% + 1px), transparent calc(66.66% + 1px)),
-    var(--paper);
-}
-
 /* ===== 골목 ===== */
 .topic-list {
   display: flex;
