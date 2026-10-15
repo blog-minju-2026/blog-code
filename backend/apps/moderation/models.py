@@ -37,8 +37,26 @@ class UserSanction(models.Model):
         ]
 
 
+class AppendOnlyQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise PermissionError("관리 기록은 고칠 수 없어요.")
+
+    def delete(self):
+        raise PermissionError("관리 기록은 지울 수 없어요.")
+
+
 class AdminLog(models.Model):
     """관리 기록 (ERD admin_logs, ADMIN-06). 추가만 하고 고치거나 지우지 않는다."""
+
+    class Action(models.TextChoices):
+        HIDE_POST = "HIDE_POST"
+        UNHIDE_POST = "UNHIDE_POST"
+        HIDE_COMMENT = "HIDE_COMMENT"
+        UNHIDE_COMMENT = "UNHIDE_COMMENT"
+        HIDE_GUESTBOOK = "HIDE_GUESTBOOK"
+        UNHIDE_GUESTBOOK = "UNHIDE_GUESTBOOK"
+        SANCTION_USER = "SANCTION_USER"
+        RELEASE_USER = "RELEASE_USER"
 
     admin = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", verbose_name="처리한 관리자"
@@ -54,3 +72,13 @@ class AdminLog(models.Model):
         ordering = ["-created_at"]
         verbose_name = "관리 기록"
         verbose_name_plural = "관리 기록"
+
+    objects = AppendOnlyQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise PermissionError("관리 기록은 고칠 수 없어요.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("관리 기록은 지울 수 없어요.")

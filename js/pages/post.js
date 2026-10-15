@@ -54,6 +54,13 @@ function renderArticle(post, blog) {
   document.getElementById('post-title').textContent = post.title;
   document.getElementById('post-meta').textContent = meta.join(' · ');
 
+  // 관리자가 숨긴 기록: 주인에게만 이 칸이 온다 (ADMIN-03)
+  if (post.hidden) {
+    const notice = document.getElementById('hidden-notice');
+    notice.textContent = `관리자가 숨긴 기록이에요. 다른 사람에게는 보이지 않아요. 사유: ${post.hidden.reason}`;
+    notice.hidden = false;
+  }
+
   // 서버가 정제한 본문이지만, 화면에 넣기 전에 한 번 더 거른다
   document.getElementById('post-body').innerHTML = sanitizeHTML(post.content);
 

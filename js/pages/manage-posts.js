@@ -31,13 +31,15 @@ async function loadCounts() {
 function rowHTML(p) {
   const topic = p.topic ? `골목 ${escapeHTML(p.topic.name)}` : '골목 없음';
   const isPublic = p.visibility === 'PUBLIC';
+  // 관리자가 숨긴 기록은 공개 범위와 상관없이 다른 사람에게 보이지 않는다 (ADMIN-03)
+  const hidden = p.hidden ? `<span class="private-mark" title="사유: ${escapeHTML(p.hidden.reason)}">관리자가 숨김 · ${escapeHTML(p.hidden.reason)}</span>` : '';
   return `
     <div class="manage-row" data-no="${p.no}">
       <div class="manage-post">
         ${thumbHTML(p.thumbnail_url, 'thumb-img')}
         <div class="manage-post-text">
           <a class="manage-post-title" href="${Links.post(address, p.no)}">${escapeHTML(p.title)}</a>
-          <span class="manage-post-meta"><span class="room-label">${escapeHTML(roomName(p.category))}</span>${topic} · 댓글 ${p.comment_count}</span>
+          <span class="manage-post-meta"><span class="room-label">${escapeHTML(roomName(p.category))}</span>${topic} · 댓글 ${p.comment_count}${hidden}</span>
         </div>
       </div>
       <span class="manage-date">${formatDate(p.published_at)}</span>

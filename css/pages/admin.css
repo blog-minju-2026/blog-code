@@ -1,0 +1,170 @@
+/* ===== 마을 관리 (SCR-19) ===== */
+/* 제목 · 탭 · 쪽 번호는 기록 관리(manage-posts.css)와 같은 모양을 쓴다 */
+
+.admin-search {
+  display: flex;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.admin-search .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-row:last-child {
+  border-bottom: none;
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-main strong {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.admin-main .private-mark,
+.admin-dialog .private-mark {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-sub {
+  font-size: 13px;
+  color: var(--meok-sub);
+  overflow-wrap: anywhere;
+}
+
+.admin-text {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-tools .btn {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* 사유 · 기간을 받는 창 */
+.admin-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-dialog .hc-dialog-actions {
+  margin-top: 0;
+}
+
+.admin-dialog .form-error-line:empty {
+  display: none;
+}
+
+.period {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.period-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.period-option input {
+  position: absolute;
+  opacity: 0;
+}
+
+.period-option span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.period-option input:checked + span {
+  border-color: var(--giwa);
+  background: var(--giwa);
+  color: var(--paper);
+}
+
+.period-option input:focus-visible + span {
+  outline: 3px solid var(--dancheong);
+  outline-offset: 2px;
+}
+
+/* 본문 보기 창 */
+.admin-dialog-wide {
+  width: min(760px, calc(100% - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.admin-dialog-wide > .private-mark {
+  display: block;
+  margin-top: 8px;
+}
+
+.admin-body {
+  margin: 16px 0 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-comments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-comments li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 600px) {
+  .admin-row {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px;
+  }
+
+  .admin-tools {
+    justify-content: flex-start;
+  }
+}

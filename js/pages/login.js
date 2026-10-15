@@ -48,6 +48,11 @@ function showError(form, message) {
   form.querySelector('.form-error').textContent = message;
 }
 
+function suspendedMessage({ reason, ends_at: endsAt }) {
+  const until = endsAt ? `${formatDateTime(endsAt)}까지` : '기한 없음';
+  return `이용이 제한된 계정이에요 (${until}). 사유: ${reason}`;
+}
+
 // 성공하면 onSuccess, 실패하면 서버가 준 문장을 보여 준다
 async function submitWith(form, action, onSuccess) {
   const button = form.querySelector('.form-submit');
@@ -119,6 +124,8 @@ loginForm.addEventListener('submit', (e) => {
     const result = await Auth.logIn(email.value, password.value);
     // 메일 인증 전이면 다시 보내기를 함께 보여 준다
     if (result.code === 'EMAIL_NOT_VERIFIED') showResend();
+    // 이용 제한이면 사유와 기한을 함께 알린다 (ADMIN-02)
+    if (result.code === 'SUSPENDED' && result.detail) result.message = suspendedMessage(result.detail);
     return result;
   }, () => { location.href = next; });
 });

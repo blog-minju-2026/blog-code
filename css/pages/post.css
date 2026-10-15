@@ -50,6 +50,18 @@
   padding: 0 56px 28px;
 }
 
+/* 관리자가 숨긴 기록: 주인에게만 보이는 안내 (ADMIN-03) */
+.hidden-notice {
+  margin: 28px 56px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--seal);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--meok);
+  font-size: 14px;
+}
+
 .post-tags:empty {
   display: none;
 }
@@ -319,6 +331,10 @@
 
   .post-body {
     padding: 28px 20px;
+  }
+
+  .hidden-notice {
+    margin: 20px 20px 0;
   }
 
   .post-tags,

@@ -11,6 +11,7 @@ api_patterns = [
     path("", include("apps.posts.urls")),
     path("", include("apps.community.urls")),
     path("", include("apps.rankings.urls")),
+    path("", include("apps.moderation.urls")),
 ]
 
 urlpatterns = [

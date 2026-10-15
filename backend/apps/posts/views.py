@@ -23,6 +23,7 @@ from .serializers import (
     CategoryCreateSerializer,
     PostWriteSerializer,
     cursor_page,
+    hidden_notice,
     paginate,
     post_summary,
     post_url,
@@ -160,6 +161,7 @@ class PostDetailView(APIView):
         if is_owner:
             # 고치기 화면이 대표 이미지를 고를 때 쓴다 (명세서 밖, 주인에게만)
             data["cover_image_id"] = post.cover_image_id
+            data["hidden"] = hidden_notice(post)
             images = [pi.image for pi in post.post_images.select_related("image")]
             if post.cover_image and post.cover_image not in images:
                 images.append(post.cover_image)  # 본문과 따로 올린 대표 이미지

@@ -50,7 +50,7 @@ const Auth = (function () {
       mePromise = Promise.resolve(data.user);
       return { ok: true };
     } catch (err) {
-      return { ok: false, code: err.code, message: err.firstMessage || err.message };
+      return { ok: false, code: err.code, message: err.firstMessage || err.message, detail: err.detail };
     }
   }
 
