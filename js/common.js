@@ -19,6 +19,10 @@ const Links = {
   post: (address, no) => `/post?address=${encodeURIComponent(address)}&no=${no}`,
   write: (no) => (no ? `/write?no=${no}` : '/write'),
   me: () => '/me',
+  admin: (tab, filter = {}) => {
+    const params = new URLSearchParams(Object.entries({ tab, ...filter }).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    return params.toString() ? `/admin?${params}` : '/admin';
+  },
   settings: () => '/settings',
   managePosts: (filter = {}) => {
     const params = new URLSearchParams(Object.entries(filter).filter(([, v]) => v !== undefined && v !== null && v !== ''));
@@ -282,6 +286,8 @@ async function renderHeaderNav(nav, { showMe = false } = {}) {
     ? `<a class="plain" href="${Links.yard(user.blog_address)}">내 한채</a>
        <a class="btn btn-primary" href="${Links.write()}">글쓰기</a>`
     : `<a class="btn btn-primary" href="${Links.build()}">한채 짓기</a>`;
+  // 서비스 관리자에게만 마을 관리 (ADMIN-01)
+  if (user.role === 'ADMIN') nav.insertAdjacentHTML('afterbegin', `<a class="plain" href="${Links.admin()}">마을 관리</a>`);
   if (showMe) {
     nav.insertAdjacentHTML('beforeend', `
       <a class="hc-me" href="${Links.me()}" aria-label="내 정보: ${escapeHTML(user.nickname)}">

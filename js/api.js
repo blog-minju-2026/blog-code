@@ -4,18 +4,19 @@
  * - 화면과 API 가 같은 주소에 있으므로 세션 쿠키가 그대로 따라간다.
  * - 바꾸는 요청(POST · PATCH · PUT · DELETE)에는 X-CSRFToken 헤더를 붙인다.
  *   csrftoken 쿠키가 없으면 GET /api/auth/csrf 로 먼저 받는다.
- * - 실패하면 ApiError(status, code, message, fields) 를 던진다.
+ * - 실패하면 ApiError(status, code, message, fields, detail) 를 던진다.
  *
  * 사용법:
  *   const topics = await Api.get('/api/topics');
  *   await Api.post('/api/auth/login', { email, password });
  */
 class ApiError extends Error {
-  constructor(status, code, message, fields) {
+  constructor(status, code, message, fields, detail) {
     super(message);
     this.status = status;
     this.code = code;
     this.fields = fields || {};
+    this.detail = detail || null; // 예: SUSPENDED 의 { reason, ends_at }
   }
 
   // 칸별 오류가 있으면 첫 번째 것을, 없으면 전체 메시지
@@ -71,6 +72,7 @@ const Api = (function () {
         error.code || 'SERVER_ERROR',
         error.message || '잠시 후 다시 시도해 주세요.',
         error.fields,
+        error.detail,
       );
     }
     return data;

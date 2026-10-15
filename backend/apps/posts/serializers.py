@@ -135,9 +135,16 @@ def thumbnail_url(post, request):
     return media_url(image.thumb_file.name) if image else None
 
 
+def hidden_notice(post):
+    """관리자가 숨긴 기록이면 주인에게 숨김 사실과 사유를 알린다 (ADMIN-03). 아니면 None."""
+    if not post.hidden_at:
+        return None
+    return {"at": post.hidden_at, "reason": post.hidden_reason}
+
+
 def post_summary(post, request, owner_view=False):
     """PostSummary (API 명세서 3.3). post 는 with_counts() 를 거친 것이어야 한다.
-    주인이 자기 목록을 볼 때는 view_count 가 더 붙는다."""
+    주인이 자기 목록을 볼 때는 view_count 와 hidden(관리자 숨김)이 더 붙는다."""
     data = {
         "blog": {"address": post.blog.address, "name": post.blog.name},
         "no": post.post_no,
@@ -153,6 +160,7 @@ def post_summary(post, request, owner_view=False):
     }
     if owner_view:
         data["view_count"] = post.view_count
+        data["hidden"] = hidden_notice(post)
     return data
 
 
