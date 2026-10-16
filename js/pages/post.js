@@ -90,11 +90,11 @@ function bindActions(post) {
     likeButton.title = '내 기록에는 공감할 수 없어요';
   }
   likeButton.addEventListener('click', async () => {
-    if (!(await Auth.currentUser())) {
-      location.href = Links.login(Links.here());
-      return;
-    }
     try {
+      if (!(await Auth.currentUser())) {
+        location.href = Links.login(Links.here());
+        return;
+      }
       const result = await Store.setLike(address, no, !liked);
       liked = result.liked;
       renderLike(liked, result.like_count);

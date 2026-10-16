@@ -191,6 +191,17 @@
   font-size: 14px;
 }
 
+/* 비밀번호 다시 정하기 */
+.login-forgot {
+  align-self: flex-end;
+  font-size: 13px;
+}
+
+.login-subtitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+
 .login-switch {
   font-size: 14px;
   color: var(--meok-sub);

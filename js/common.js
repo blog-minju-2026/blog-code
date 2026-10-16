@@ -92,6 +92,12 @@ function formatDateTime(iso) {
   return new Date(iso).toLocaleString('ko-KR', { ...KST, month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+// 이용 제한 안내 (ADMIN-02). detail: 서버가 SUSPENDED 와 함께 준 { reason, ends_at }
+function suspendedMessage({ reason, ends_at: endsAt }) {
+  const until = endsAt ? `${formatDateTime(endsAt)}까지` : '기한 없음';
+  return `이용이 제한된 계정이에요 (${until}). 사유: ${reason}`;
+}
+
 // 방금 · 12분 전 · 3시간 전 · 어제 · 10월 8일
 function timeAgo(iso) {
   const minutes = Math.floor((Date.now() - new Date(iso)) / 60000);
@@ -277,7 +283,14 @@ function confirmDialog({ title, text, confirmLabel = '확인', danger = false })
 // showMe: 오른쪽 끝에 지금 로그인한 나(사진 · 닉네임)를 보인다 (방명록 시안)
 async function renderHeaderNav(nav, { showMe = false } = {}) {
   markNewRelease();
-  const user = await Auth.currentUser();
+  let user;
+  try {
+    user = await Auth.currentUser();
+  } catch (err) {
+    // 내 정보를 못 받았어도 누구나 보는 화면은 그대로 연다. 주인만 보는 화면은 그 화면이 다시 물어 오류를 보인다
+    console.error(err);
+    user = null;
+  }
   if (!user) {
     nav.innerHTML = `<a class="btn btn-secondary" href="${Links.login(Links.here())}">로그인</a>`;
     return { user: null };
@@ -307,12 +320,12 @@ function bindNeighborButton(button, blog, onCount) {
   };
   paint();
   button.addEventListener('click', async () => {
-    if (!(await Auth.currentUser())) {
-      location.href = Links.login(Links.here());
-      return;
-    }
     button.disabled = true;
     try {
+      if (!(await Auth.currentUser())) {
+        location.href = Links.login(Links.here());
+        return;
+      }
       const result = await Store.setNeighbor(blog.address, !subscribed);
       subscribed = result.subscribed;
       paint();
@@ -332,6 +345,10 @@ const LOST_CASES = {
   forbidden: { code: '403', eyebrow: '들어갈 수 없는 곳', title: '문이 닫혀 있어요', text: '주인만 들어갈 수 있는 곳이에요. 내 한채라면 로그인한 뒤 다시 열어 주세요.', action: 'login' },
   serverError: { code: '500', eyebrow: '잠시 문제가 생겼어요', title: '대문이 잠시 고장 났어요', text: '서버에 문제가 생겨 화면을 열지 못했어요. 잠시 뒤 다시 들어와 주세요.', action: 'reload' },
   loadFailed: { code: '!', eyebrow: '연결이 끊겼어요', title: '화면을 불러오지 못했어요', text: '인터넷 연결이 끊겼거나 서버가 잠시 답하지 않아요. 연결을 확인하고 다시 불러와 주세요.', action: 'reload' },
+  badRequest: { code: '400', eyebrow: '잘못된 요청', title: '열 수 없는 주소예요', text: '주소에 담긴 값이 올바르지 않아요. 이전 화면에서 다시 들어와 주세요.', action: 'back' },
+  tooMany: { code: '429', eyebrow: '잠시 쉬어 가요', title: '요청이 너무 잦아요', text: '잠시 뒤 다시 불러와 주세요.', action: 'reload' },
+  suspended: { code: '403', eyebrow: '이용 제한', title: '이용이 제한된 계정이에요', text: '이용이 제한되어 로그아웃됐어요.', action: 'back' },
+  broken: { code: '!', eyebrow: '잠시 문제가 생겼어요', title: '화면을 열지 못했어요', text: '화면을 그리다 문제가 생겼어요. 다시 불러와도 그대로면 잠시 뒤 다시 들어와 주세요.', action: 'reload' },
 };
 
 function lostHTML(kind, { text } = {}) {
@@ -396,9 +413,20 @@ function runPage(main) {
   main().catch((err) => {
     if (leavingPage) return;
     console.error(err);
-    // 서버가 오류로 답했으면 '고장', 답이 없었으면 '연결 끊김'
-    const kind = err.status === 404 ? 'notFound' : err.status === 403 ? 'forbidden' : err.status >= 500 ? 'serverError' : 'loadFailed';
-    showLost(kind);
+    // 로그인이 끊겼으면(세션 만료) 로그인한 뒤 이 화면으로 돌아오게 한다
+    if (err.status === 401) {
+      location.replace(Links.login(Links.here()));
+      return;
+    }
+    if (err.code === 'SUSPENDED') {
+      showLost('suspended', { text: suspendedMessage(err.detail || {}) });
+      return;
+    }
+    // 서버가 오류로 답했으면 그 종류대로, 답이 없었으면(status 0) '연결 끊김', 서버 오류가 아니면(화면 코드) '문제'
+    const kind = { 400: 'badRequest', 403: 'forbidden', 404: 'notFound', 429: 'tooMany' }[err.status]
+      || (err.status >= 500 ? 'serverError' : err.status === 0 ? 'loadFailed' : 'broken');
+    // 잘못된 값 · 잦은 요청은 서버가 준 문장이 더 정확하다 (예: '찾을 낱말은 50자까지', '12초 뒤에')
+    showLost(kind, kind === 'badRequest' || kind === 'tooMany' ? { text: err.firstMessage || err.message } : undefined);
   });
 }
 

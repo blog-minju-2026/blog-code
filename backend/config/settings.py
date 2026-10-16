@@ -122,9 +122,18 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
 ]
 
+# 화면에 보일 문장은 accounts/serializers.py 의 PASSWORD_MESSAGES 가 오류 코드마다 정한다
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "OPTIONS": {"user_attributes": ["email", "nickname"]},
+    },
 ]
+# 비밀번호 재설정 메일의 링크를 쓸 수 있는 시간 (초)
+PASSWORD_RESET_TIMEOUT = 60 * 60
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
@@ -191,6 +200,32 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "apps.common.errors.exception_handler",
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
+    # 요청 횟수 제한: throttle_scope 를 정한 API 의 바꾸는 요청만 센다 (apps/common/throttles.py)
+    # 회원은 회원마다, 비회원은 IP 마다. 학교처럼 여럿이 한 IP 를 함께 쓰는 곳을 생각해 넉넉히 둔다
+    "DEFAULT_THROTTLE_CLASSES": ["apps.common.throttles.ScopedWriteThrottle"],
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "30/min",  # 로그인 · 이메일 인증 (비밀번호를 확인하는 곳)
+        "signup": "30/hour",
+        "auth_mail": "20/hour",  # 인증 메일 다시 보내기 · 비밀번호 재설정 메일
+        "password_reset": "30/hour",  # 새 비밀번호 정하기
+        "post_publish": "30/hour",
+        "image_upload": "120/hour",
+        "comment": "10/min",
+        "guestbook": "10/min",
+    },
+    # 손님의 IP 는 nginx 가 X-Forwarded-For 끝에 붙인 값을 쓴다 (앞쪽은 손님이 마음대로 적어 보낼 수 있다)
+    # nginx 없이 바로 받는 곳(노트북의 docker compose · runserver)에는 이 헤더가 없어 접속 주소를 그대로 쓴다
+    "NUM_PROXIES": int(env("NUM_PROXIES", "1")),
+}
+
+# 캐시: 요청 횟수 · 로그인 실패 횟수를 센다. gunicorn 작업자 · 컨테이너가 여럿이라 메모리가 아니라 DB 에 둔다.
+# 테이블은 migrate 가 만든다 (accounts 0003)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_entries",
+        "OPTIONS": {"MAX_ENTRIES": 20000},
+    }
 }
 
 
