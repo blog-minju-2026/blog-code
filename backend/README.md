@@ -67,3 +67,4 @@ DB_PORT=3306
 - `created_at` · `updated_at` 은 DB 기본값(CURRENT_TIMESTAMP, ON UPDATE) 대신 Django 가 저장할 때 채운다.
 - 외래 키의 ON DELETE(CASCADE, SET NULL, RESTRICT)는 DB 가 아니라 Django 가 처리한다.
 - Django 권한 기능 때문에 ERD 에 없는 `users_groups`, `users_user_permissions` 테이블과 Django · allauth 의 기본 테이블이 함께 생긴다.
+- 요청 횟수 · 로그인 실패 횟수를 세는 캐시 테이블 `cache_entries` 가 함께 생긴다 (`settings.CACHES`, migrate 가 만든다). 컨테이너 · gunicorn 작업자가 여럿이라 메모리 대신 DB 에 둔다.

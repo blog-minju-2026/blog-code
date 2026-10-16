@@ -76,6 +76,8 @@ def guestbook_payload(entry, request, blog_owner_id):
 class PostCommentsView(APIView):
     """GET · POST /api/blogs/{address}/posts/{no}/comments — 댓글 보기 · 쓰기 (CMT-01)."""
 
+    throttle_scope = "comment"  # 쓰기(POST)만 센다
+
     def get(self, request, address, no):
         blog = get_visible_blog_or_404(address, request.user)
         post = visible_post_or_404(blog, no, request.user)
@@ -212,6 +214,8 @@ class FeedView(APIView):
 
 class GuestbookView(APIView):
     """GET · POST /api/blogs/{address}/guestbook — 방명록 보기(최신순, 페이지) · 남기기 (CMT-04)."""
+
+    throttle_scope = "guestbook"  # 남기기(POST)만 센다
 
     def get(self, request, address):
         blog = get_visible_blog_or_404(address, request.user)

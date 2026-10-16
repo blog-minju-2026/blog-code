@@ -1,7 +1,7 @@
 {% load account %}{% autoescape off %}{% user_display user as user_display %}안녕하세요, {{ user_display }} 님.
 
 한채에 가입해 주셔서 고마워요.
-아래 링크를 눌러 이메일 인증을 마치면 로그인할 수 있어요.
+아래 링크를 열고 가입할 때 정한 비밀번호를 넣으면 인증을 마치고 바로 들어갈 수 있어요.
 
 {{ activate_url }}
 

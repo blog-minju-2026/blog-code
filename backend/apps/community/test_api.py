@@ -59,6 +59,15 @@ class CommentTests(CommunityApiTestBase):
         self.assertEqual((first.status_code, again.status_code), (201, 200))
         self.assertEqual(Comment.objects.count(), 1)
 
+    def test_writing_is_limited_per_member_but_reading_is_not(self):
+        for i in range(10):
+            self.assertEqual(self.reader_client.post(self.url, {"content": f"댓글 {i}"}, format="json").status_code, 201)
+        res = self.reader_client.post(self.url, {"content": "하나 더"}, format="json")
+        self.assertEqual((res.status_code, res.json()["error"]["code"]), (429, "TOO_MANY_REQUESTS"))
+        self.assertEqual(self.reader_client.get(self.url).status_code, 200)
+        # 다른 회원은 따로 센다
+        self.assertEqual(self.third_client.post(self.url, {"content": "저도요"}, format="json").status_code, 201)
+
     def test_private_post_comments_are_hidden(self):
         self.assertEqual(self.reader_client.get("/api/blogs/minju/posts/2/comments").status_code, 404)
         self.assertEqual(self.owner_client.get("/api/blogs/minju/posts/2/comments").status_code, 200)

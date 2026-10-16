@@ -3,6 +3,8 @@
 모든 오류는 {"error": {"code", "message", "fields"?, "detail"?}} 모양으로 돌려준다.
 """
 
+import math
+
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.http import Http404
 from rest_framework import exceptions, status
@@ -74,6 +76,14 @@ def exception_handler(exc, context):
         return Response(_body("FORBIDDEN", message), status=status.HTTP_403_FORBIDDEN)
     if isinstance(exc, (exceptions.NotFound, Http404)):
         return Response(_body("NOT_FOUND"), status=status.HTTP_404_NOT_FOUND)
+    if isinstance(exc, exceptions.Throttled):
+        seconds = max(1, math.ceil(exc.wait or 1))
+        after = f"{seconds}초" if seconds < 60 else f"{math.ceil(seconds / 60)}분"
+        return Response(
+            _body("TOO_MANY_REQUESTS", f"요청이 너무 잦아요. {after} 뒤에 다시 시도해 주세요.", detail={"retry_after": seconds}),
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(seconds)},
+        )
 
     response = drf_exception_handler(exc, context)
     if response is not None:

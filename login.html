@@ -45,6 +45,7 @@
         <p class="resend-status" id="resend-status" role="status"></p>
       </div>
       <p class="login-notice" id="verified-done" role="status" hidden>이메일 인증을 마쳤어요. 이제 로그인할 수 있어요.</p>
+      <p class="login-notice" id="reset-done" role="status" hidden>새 비밀번호를 정했어요. 새 비밀번호로 로그인해 주세요.</p>
 
       <form id="login-form" class="login-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
         <div class="field">
@@ -54,6 +55,7 @@
         <div class="field">
           <label for="login-password">비밀번호</label>
           <input id="login-password" type="password" name="password" autocomplete="current-password" required>
+          <button type="button" class="text-link login-forgot" data-tab="forgot">비밀번호를 잊었나요?</button>
         </div>
         <p class="form-error" role="alert"></p>
         <button type="submit" class="btn btn-primary btn-block form-submit">로그인</button>
@@ -96,6 +98,21 @@
         <p class="form-error" role="alert"></p>
         <button type="submit" class="btn btn-primary btn-block form-submit">가입하기</button>
         <p class="login-switch">이미 회원이신가요? <button type="button" class="text-link" data-tab="login">로그인</button></p>
+      </form>
+
+      <!-- 비밀번호 다시 정하기: 메일로 받은 링크(/reset-password)에서 새 비밀번호를 정한다 -->
+      <form id="forgot-form" class="login-form" aria-labelledby="forgot-title" novalidate hidden>
+        <h2 id="forgot-title" class="login-subtitle">비밀번호 다시 정하기</h2>
+        <p class="login-desc">가입한 이메일로 비밀번호를 새로 정하는 링크를 보내요. 링크는 1시간 동안 쓸 수 있어요.
+          인증을 마치지 않은 가입도 이 링크로 비밀번호를 정하면 인증까지 마쳐져요.</p>
+        <div class="field">
+          <label for="forgot-email">이메일</label>
+          <input id="forgot-email" type="email" name="email" autocomplete="email" required>
+        </div>
+        <p class="login-notice" id="forgot-done" role="status" hidden></p>
+        <p class="form-error" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block form-submit">링크 받기</button>
+        <p class="login-switch"><button type="button" class="text-link" data-tab="login">로그인으로 돌아가기</button></p>
       </form>
     </section>
   </main>

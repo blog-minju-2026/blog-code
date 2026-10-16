@@ -1,10 +1,11 @@
 /**
  * 로그인 · 가입 (SCR-05)
- * /login?tab=signup 으로 들어오면 가입 탭을 연다.
+ * /login?tab=signup 으로 들어오면 가입 탭을, /login?forgot=1 이면 비밀번호 다시 정하기를 연다.
  * /login?next=/주소 로 들어오면 로그인한 뒤 그 주소로 돌아간다.
  */
 const loginForm = document.getElementById('login-form');
 const signupForm = document.getElementById('signup-form');
+const forgotForm = document.getElementById('forgot-form');
 const tabs = document.querySelectorAll('.login-tabs [role="tab"]');
 const params = new URLSearchParams(location.search);
 
@@ -14,14 +15,19 @@ const next = safeNext(params.get('next'));
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ----- 탭 -----
+// name: login · signup · forgot (forgot 은 탭이 아니라 로그인 아래의 '비밀번호를 잊었나요?'로 연다)
 function showTab(name) {
   tabs.forEach((tab) => {
     const selected = tab.dataset.tab === name;
     tab.setAttribute('aria-selected', String(selected));
-    tab.tabIndex = selected ? 0 : -1;
+    tab.tabIndex = selected || (name === 'forgot' && tab.dataset.tab === 'login') ? 0 : -1;
   });
   loginForm.hidden = name !== 'login';
   signupForm.hidden = name !== 'signup';
+  forgotForm.hidden = name !== 'forgot';
+  if (name === 'forgot' && !forgotForm.elements.email.value) {
+    forgotForm.elements.email.value = loginForm.elements.email.value.trim();
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -46,11 +52,6 @@ document.querySelectorAll('.social-link').forEach((link) => {
 // ----- 폼 -----
 function showError(form, message) {
   form.querySelector('.form-error').textContent = message;
-}
-
-function suspendedMessage({ reason, ends_at: endsAt }) {
-  const until = endsAt ? `${formatDateTime(endsAt)}까지` : '기한 없음';
-  return `이용이 제한된 계정이에요 (${until}). 사유: ${reason}`;
 }
 
 // 성공하면 onSuccess, 실패하면 서버가 준 문장을 보여 준다
@@ -153,11 +154,28 @@ signupForm.addEventListener('submit', (e) => {
   }), () => showVerificationSent(email.value.trim()));
 });
 
-// 이미 로그인했으면 돌아갈 곳으로 보낸다
+// ----- 비밀번호 다시 정하기 -----
+// 가입하지 않은 주소에도 서버는 '보냈어요'로 답한다 (가입 여부를 알려 주지 않는다)
+forgotForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = forgotForm.elements.email.value.trim();
+  const done = document.getElementById('forgot-done');
+  done.hidden = true;
+  if (!EMAIL_PATTERN.test(email)) return showError(forgotForm, '이메일을 올바르게 입력해 주세요.');
+
+  submitWith(forgotForm, () => Auth.requestPasswordReset(email), () => {
+    done.textContent = `${email} 로 가입한 계정이 있으면 비밀번호를 새로 정하는 링크를 보냈어요. 메일이 안 보이면 스팸함도 확인해 주세요.`;
+    done.hidden = false;
+  });
+});
+
+// 이미 로그인했으면 돌아갈 곳으로 보낸다. 내 정보를 못 받았으면 로그인 화면에 그대로 둔다
 Auth.currentUser().then((user) => {
   if (user) location.replace(next);
-});
+}).catch(() => {});
 if (params.get('tab') === 'signup') showTab('signup');
+if (params.get('forgot') === '1') showTab('forgot');
 if (params.get('verified') === '1') document.getElementById('verified-done').hidden = false;
+if (params.get('reset') === '1') document.getElementById('reset-done').hidden = false;
 // 인증 링크가 만료돼 넘어온 경우 (verify-email 화면)
 if (params.get('resend') === '1') showResend();
