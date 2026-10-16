@@ -20,6 +20,7 @@ from apps.common.permissions import EnforceCsrfMixin, IsMember
 from apps.posts.images import get_own_image
 
 from .models import User, VerificationMailLog
+from .pending import expired_pending_signups, pending_signups, removable_pending_signups
 from .serializers import (
     EmailResendSerializer,
     LoginSerializer,
@@ -59,8 +60,15 @@ class SignupView(EnforceCsrfMixin, APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        # 인증을 안 마친 가입은 자리를 내준다. 닉네임은 바로 (이메일을 잘못 써 끝내 인증할 수 없는 가입일 수 있다),
+        # 같은 이메일은 그 주소로 간 링크가 만료된 뒤에만 (그 전에는 메일함의 링크로 마치면 된다)
+        removable_pending_signups().filter(nickname=data["nickname"]).exclude(email__iexact=data["email"]).delete()
+        expired_pending_signups().filter(email__iexact=data["email"]).delete()
+
         conflicts = {}
-        if User.objects.filter(email=data["email"]).exists():
+        if pending_signups().filter(email=data["email"]).exists():
+            conflicts["email"] = "인증을 기다리는 가입이 있어요. 메일함을 확인하거나 인증 메일을 다시 받아 주세요."
+        elif User.objects.filter(email=data["email"]).exists():
             conflicts["email"] = "이미 가입한 이메일이에요."
         if User.objects.filter(nickname=data["nickname"]).exists():
             conflicts["nickname"] = "이미 쓰고 있는 닉네임이에요."

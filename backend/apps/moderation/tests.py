@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 
+from allauth.account.models import EmailAddress
 from django.contrib import admin
 from django.db import transaction
 from django.utils import timezone
@@ -67,6 +68,17 @@ class SanctionTests(AdminTestBase):
         self.assertIsNone(items[0]["sanction"])
         # 이메일로도 찾는다
         self.assertEqual(self.client.get("/api/admin/users", {"q": "seohyun@"}).json()["items"][0]["nickname"], "서현")
+
+    def test_pending_signup_is_not_listed(self):
+        """이메일 인증을 안 마친 가입(이메일 오타 등)은 회원 목록에 없다."""
+        pending = User.objects.create_user("typo@exmaple.com", "password123", nickname="오타")
+        EmailAddress.objects.create(user=pending, email=pending.email, primary=True, verified=False)
+        nicknames = [u["nickname"] for u in self.client.get("/api/admin/users").json()["items"]]
+        self.assertNotIn("오타", nicknames)
+        self.assertIn("민주", nicknames)
+
+        EmailAddress.objects.filter(user=pending).update(verified=True)
+        self.assertIn("오타", [u["nickname"] for u in self.client.get("/api/admin/users").json()["items"]])
 
     def test_sanction_with_end_date(self):
         ends = timezone.now() + timedelta(days=7)

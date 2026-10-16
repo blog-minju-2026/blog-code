@@ -175,6 +175,67 @@ class SignupMailTests(APITestCase):
         self.assertEqual(self.client.post("/api/auth/signup", SIGNUP, format="json").status_code, 201)
 
 
+class PendingSignupTests(APITestCase):
+    """이메일 인증을 안 마친 가입은 회원이 아니다. 이메일을 잘못 써 인증할 수 없는 가입이 자리를 붙잡지 않게 한다."""
+
+    def setUp(self):
+        self.client.post("/api/auth/signup", {**SIGNUP, "email": "minju@exmaple.com"}, format="json")  # 오타
+
+    def expire(self, email="minju@exmaple.com"):
+        User.objects.filter(email=email).update(created_at=timezone.now() - timedelta(days=4))
+
+    def test_nickname_is_released_for_signup_with_another_email(self):
+        res = self.client.post("/api/auth/signup", SIGNUP, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertFalse(User.objects.filter(email="minju@exmaple.com").exists())
+        self.assertFalse(EmailAddress.objects.filter(email="minju@exmaple.com").exists())
+        # 지운 가입의 링크는 더는 쓸 수 없다
+        old_key = re.search(r"/verify-email\?key=([^\s]+)", mail.outbox[0].body).group(1)
+        self.assertEqual(self.client.post("/api/auth/email/verify", {"key": old_key}, format="json").status_code, 400)
+
+    def test_verified_member_keeps_nickname(self):
+        EmailAddress.objects.update(verified=True)
+        res = self.client.post("/api/auth/signup", SIGNUP, format="json")
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(set(res.json()["error"]["fields"]), {"nickname"})
+
+    def test_same_email_waits_until_link_expires(self):
+        again = {**SIGNUP, "email": "minju@exmaple.com", "nickname": "다른이"}
+        res = self.client.post("/api/auth/signup", again, format="json")
+        self.assertEqual(res.status_code, 409)
+        self.assertIn("인증 메일을 다시", res.json()["error"]["fields"]["email"])
+
+        self.expire()
+        self.assertEqual(self.client.post("/api/auth/signup", again, format="json").status_code, 201)
+        self.assertEqual(User.objects.get(email="minju@exmaple.com").nickname, "다른이")
+
+    def test_resent_link_keeps_signup_alive(self):
+        self.expire()
+        self.client.post("/api/auth/email/resend", {"email": "minju@exmaple.com"}, format="json")
+        res = self.client.post("/api/auth/signup", {**SIGNUP, "email": "minju@exmaple.com", "nickname": "다른이"}, format="json")
+        self.assertEqual(res.status_code, 409)
+
+    def test_delete_expired_signups_command(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        make_member("seohyun@example.com", "서현", verified=False)  # 아직 링크가 살아 있다
+        make_member("old@example.com", "옛회원")
+        User.objects.filter(email="old@example.com").update(created_at=timezone.now() - timedelta(days=30))  # 인증을 마친 회원은 남는다
+        self.expire()
+
+        out = StringIO()
+        call_command("delete_expired_signups", "--dry-run", stdout=out)
+        self.assertIn("minju@exmaple.com", out.getvalue())
+        self.assertTrue(User.objects.filter(email="minju@exmaple.com").exists())
+
+        call_command("delete_expired_signups", stdout=StringIO())
+        self.assertEqual(
+            set(User.objects.values_list("email", flat=True)), {"seohyun@example.com", "old@example.com"}
+        )
+
+
 class EmailResendTests(APITestCase):
     url = "/api/auth/email/resend"
 
