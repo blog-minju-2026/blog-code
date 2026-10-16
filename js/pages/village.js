@@ -53,8 +53,12 @@ function renderSeat(user, myBlog) {
   neighbors.hidden = false;
 
   document.getElementById('logout-button').addEventListener('click', async () => {
-    await Auth.logOut();
-    location.reload();
+    try {
+      await Auth.logOut();
+      location.reload();
+    } catch (err) {
+      alert(err.message);
+    }
   });
 }
 

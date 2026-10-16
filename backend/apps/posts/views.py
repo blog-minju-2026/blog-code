@@ -62,6 +62,7 @@ class ImageUploadView(APIView):
     """POST /api/images — 이미지 올리기 (multipart/form-data, 필드 file)."""
 
     permission_classes = [IsMember]
+    throttle_scope = "image_upload"
 
     def post(self, request):
         image = save_upload(request.FILES.get("file"), request.user)
@@ -77,6 +78,8 @@ class TopicListView(APIView):
 
 class BlogPostsView(APIView):
     """GET · POST /api/blogs/{address}/posts — 한채 안 기록 목록 · 기록 발행 (POST-01, BLOG-03 …)."""
+
+    throttle_scope = "post_publish"  # 발행(POST)만 센다
 
     def get(self, request, address):
         blog = get_visible_blog_or_404(address, request.user)

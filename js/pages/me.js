@@ -111,8 +111,12 @@ form.addEventListener('submit', async (e) => {
 });
 
 document.getElementById('logout-button').addEventListener('click', async () => {
-  await Auth.logOut();
-  location.href = '/';
+  try {
+    await Auth.logOut();
+    location.href = '/';
+  } catch (err) {
+    alert(err.message);
+  }
 });
 
 // ----- 오른쪽: 내 한채 -----

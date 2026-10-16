@@ -8,12 +8,22 @@
 const Auth = (function () {
   let mePromise = null;
 
-  // 한 화면에서 여러 번 불러도 서버에는 한 번만 묻는다
+  // 한 화면에서 여러 번 불러도 서버에는 한 번만 묻는다. 비회원이면 null.
+  // 서버 오류 · 연결 끊김은 '로그인 안 함'과 다르므로 ApiError 로 실패한다
+  // (로그인한 사람이 잠깐의 오류로 로그인 화면에 튕기지 않게). 실패했으면 다음에 다시 묻는다.
   function currentUser() {
     if (!mePromise) {
       mePromise = Api.get('/api/auth/me')
         .then((data) => data.user)
-        .catch(() => null);
+        .catch((err) => {
+          // 이용 제한: 서버가 세션을 끊었다. 사유 · 기한을 한 번 알리고 비회원으로 이어 간다
+          if (err.code === 'SUSPENDED') {
+            alert(suspendedMessage(err.detail || {}));
+            return null;
+          }
+          mePromise = null;
+          throw err;
+        });
     }
     return mePromise;
   }
@@ -54,17 +64,37 @@ const Auth = (function () {
     }
   }
 
+  // 로그아웃. 세션이 이미 끝났으면(401 · 이용 제한) 로그아웃된 것으로 본다. 그 밖의 실패는 ApiError
   async function logOut() {
     try {
       await Api.post('/api/auth/logout');
-    } finally {
-      mePromise = Promise.resolve(null);
+    } catch (err) {
+      if (err.status !== 401 && err.code !== 'SUSPENDED') throw err;
+    }
+    mePromise = Promise.resolve(null);
+  }
+
+  // 메일의 인증 키와 가입할 때 정한 비밀번호로 이메일 인증을 마친다. 맞으면 바로 로그인된다.
+  // 돌려주는 값: 로그인한 사용자 (이용 제한 중이면 null). 실패하면 ApiError
+  async function verifyEmail(key, password) {
+    const data = await Api.post('/api/auth/email/verify', { key, password });
+    mePromise = Promise.resolve(data.user);
+    return data.user;
+  }
+
+  // 비밀번호를 새로 정하는 링크를 메일로 받는다. 돌려주는 값: { ok: true } 또는 { ok: false, message }
+  async function requestPasswordReset(email) {
+    try {
+      await Api.post('/api/auth/password/reset', { email: email.trim() });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err.firstMessage || err.message };
     }
   }
 
-  // 메일의 인증 키로 이메일 인증
-  async function verifyEmail(key) {
-    await Api.post('/api/auth/email/verify', { key });
+  // 메일 링크의 uid · token 으로 새 비밀번호를 정한다. 실패하면 ApiError
+  async function resetPassword(uid, token, password) {
+    await Api.post('/api/auth/password/reset/confirm', { uid, token, password });
   }
 
   // 인증 메일 다시 보내기. 실패하면 ApiError (1분 안에 또 보내면 429)
@@ -72,5 +102,7 @@ const Auth = (function () {
     await Api.post('/api/auth/email/resend', { email });
   }
 
-  return { signUp, logIn, logOut, currentUser, refresh, verifyEmail, resendVerification };
+  return {
+    signUp, logIn, logOut, currentUser, refresh, verifyEmail, resendVerification, requestPasswordReset, resetPassword,
+  };
 })();

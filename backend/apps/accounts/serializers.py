@@ -37,6 +37,24 @@ def me_payload(user, request):
     }
 
 
+# 비밀번호 검사(settings.AUTH_PASSWORD_VALIDATORS)의 오류 코드마다 화면에 보일 문장
+PASSWORD_MESSAGES = {
+    "password_too_short": "비밀번호는 8자 이상으로 써 주세요.",
+    "password_too_common": "너무 흔한 비밀번호예요. 다른 비밀번호를 써 주세요.",
+    "password_entirely_numeric": "숫자로만 된 비밀번호는 쓸 수 없어요.",
+    "password_too_similar": "이메일이나 닉네임과 비슷한 비밀번호는 쓸 수 없어요.",
+}
+
+
+def check_new_password(value, user=None):
+    """새로 정하는 비밀번호를 검사한다. user 를 주면 이메일 · 닉네임과 비슷한지도 본다."""
+    try:
+        validate_password(value, user)
+    except DjangoValidationError as e:
+        raise serializers.ValidationError(PASSWORD_MESSAGES.get(e.error_list[0].code, "다른 비밀번호를 써 주세요."))
+    return value
+
+
 class NicknameField(serializers.CharField):
     def __init__(self, **kwargs):
         super().__init__(min_length=2, max_length=20, trim_whitespace=True, **kwargs)
@@ -59,11 +77,15 @@ class SignupSerializer(serializers.Serializer):
     over_14 = serializers.BooleanField()
 
     def validate_password(self, value):
+        return check_new_password(value)
+
+    def validate(self, data):
+        # 이메일 · 닉네임과 비슷한지는 칸마다 검사한 뒤 함께 본다
         try:
-            validate_password(value)
-        except DjangoValidationError:
-            raise serializers.ValidationError("비밀번호는 8자 이상으로 써 주세요.")
-        return value
+            check_new_password(data["password"], User(email=data["email"], nickname=data["nickname"]))
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError({"password": e.detail})
+        return data
 
     def validate_agree_terms(self, value):
         if not value:
@@ -81,6 +103,7 @@ class SignupSerializer(serializers.Serializer):
         return value
 
 
+# 인증 메일 다시 보내기 · 비밀번호 재설정 메일
 class EmailResendSerializer(serializers.Serializer):
     email = serializers.EmailField(
         max_length=254, error_messages={"invalid": "이메일 형식을 확인해 주세요.", "required": "이메일을 써 주세요."}
@@ -90,6 +113,21 @@ class EmailResendSerializer(serializers.Serializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(trim_whitespace=False)
+
+
+class EmailVerifySerializer(serializers.Serializer):
+    key = serializers.CharField(trim_whitespace=True, error_messages={"blank": "인증 링크가 잘못됐어요.", "required": "인증 링크가 잘못됐어요."})
+    password = serializers.CharField(
+        trim_whitespace=False, error_messages={"blank": "비밀번호를 써 주세요.", "required": "비밀번호를 써 주세요."}
+    )
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(
+        trim_whitespace=False, error_messages={"blank": "새 비밀번호를 써 주세요.", "required": "새 비밀번호를 써 주세요."}
+    )
 
 
 class MeUpdateSerializer(serializers.Serializer):
