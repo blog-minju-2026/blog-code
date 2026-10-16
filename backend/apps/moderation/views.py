@@ -11,6 +11,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.pending import pending_signups
 from apps.common.access import active_sanctions
 from apps.common.permissions import IsServiceAdmin
 from apps.community.models import Comment, GuestbookEntry
@@ -133,10 +134,14 @@ class AdminView(APIView):
 
 # ----- 회원 · 이용 제한 (ADMIN-02) -----
 class UsersView(AdminView):
-    """GET /api/admin/users?q= — 닉네임 · 이메일 · 한채 주소로 찾는다."""
+    """GET /api/admin/users?q= — 닉네임 · 이메일 · 한채 주소로 찾는다. 이메일 인증을 안 마친 가입은 회원이 아니라 뺀다."""
 
     def get(self, request):
-        qs = User.objects.filter(is_active=True).order_by("-created_at", "-id")
+        qs = (
+            User.objects.filter(is_active=True)
+            .exclude(pk__in=pending_signups().values("pk"))
+            .order_by("-created_at", "-id")
+        )
         q = search_text(request)
         if q:
             qs = qs.filter(Q(nickname__icontains=q) | Q(email__icontains=q) | Q(blogs__address__icontains=q)).distinct()
