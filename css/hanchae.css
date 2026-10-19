@@ -1200,22 +1200,95 @@ a.tag:hover {
   }
 }
 
-/* 헤더 오른쪽의 나 (방명록) */
+/* 헤더 오른쪽 끝의 나 (모든 화면): 누르면 내 메뉴가 열린다 */
+.hc-me-wrap {
+  position: relative;
+}
+
 .hc-me {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: var(--touch-target);
   margin-left: 4px;
+  padding: 0 4px 0 0;
   color: var(--meok);
   font-size: 15px;
   font-weight: 500;
 }
 
 .hc-me .avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border: 2px solid var(--seal);
+}
+
+.hc-me-name {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-me-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 240px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 18px rgba(28, 32, 38, 0.12);
+}
+
+.hc-me-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.hc-me-head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--meok-sub);
+}
+
+.hc-me-group {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+}
+
+.hc-me-group + .hc-me-group {
+  border-top: 1px solid var(--line);
+}
+
+.hc-me-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  padding: 0 16px;
+  color: var(--meok);
+  font-size: 15px;
+  text-align: left;
+}
+
+.hc-me-item:hover {
+  background: var(--hanji-deep);
+}
+
+/* 좁은 화면에서는 사진만 (이름은 aria-label에 남는다) */
+@media (max-width: 600px) {
+  .hc-me-name,
+  .hc-me-caret {
+    display: none;
+  }
 }
 
 /* 마을 목록의 기록 줄: 어느 한채인지 작은 현판으로 (골목 · 찾기 · 이웃 소식) */

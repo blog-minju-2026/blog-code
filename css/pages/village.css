@@ -231,18 +231,6 @@
   font-size: 14px;
 }
 
-.me-links {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-}
-
-.me-links button {
-  color: var(--dancheong-ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 /* ===== 사이드바: 순위 · 북적이는 한채 ===== */
 .side-box {
   padding: 18px 20px;

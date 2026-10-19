@@ -166,7 +166,7 @@ function renderGate(blog, user) {
 async function main() {
   bindVillageSearch(document.getElementById('village-search'));
   const [{ user }, blog] = await Promise.all([
-    renderHeaderNav(document.getElementById('header-nav'), { showMe: true }),
+    renderHeaderNav(document.getElementById('header-nav')),
     Store.getBlog(address),
   ]);
   if (!blog) {

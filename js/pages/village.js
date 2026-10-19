@@ -45,21 +45,8 @@ function renderSeat(user, myBlog) {
         ${home}
       </div>
     </div>
-    <div class="me-actions">${actions}</div>
-    <div class="me-links">
-      <a class="text-link" href="${Links.me()}">내 정보</a>
-      <button type="button" id="logout-button">로그아웃</button>
-    </div>`;
+    <div class="me-actions">${actions}</div>`;
   neighbors.hidden = false;
-
-  document.getElementById('logout-button').addEventListener('click', async () => {
-    try {
-      await Auth.logOut();
-      location.reload();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
 }
 
 // ----- 골목 -----

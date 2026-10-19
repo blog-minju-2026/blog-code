@@ -279,9 +279,9 @@ function confirmDialog({ title, text, confirmLabel = '확인', danger = false })
 }
 
 // ----- 헤더 메뉴 -----
-// 로그인 전: 로그인 / 로그인 뒤: 내 한채(없으면 한채 짓기) · 글쓰기
-// showMe: 오른쪽 끝에 지금 로그인한 나(사진 · 닉네임)를 보인다 (방명록 시안)
-async function renderHeaderNav(nav, { showMe = false } = {}) {
+// 로그인 전: 로그인 / 로그인 뒤: 글쓰기(없으면 한채 짓기) · 나(사진 · 닉네임)
+// 나는 어느 화면에서나 오른쪽 끝 같은 자리에 둔다. 누르면 내 정보 · 한채 관리 · 내 마당 보기 · 로그아웃
+async function renderHeaderNav(nav) {
   markNewRelease();
   let user;
   try {
@@ -295,20 +295,70 @@ async function renderHeaderNav(nav, { showMe = false } = {}) {
     nav.innerHTML = `<a class="btn btn-secondary" href="${Links.login(Links.here())}">로그인</a>`;
     return { user: null };
   }
-  nav.innerHTML = user.blog_address
-    ? `<a class="plain" href="${Links.yard(user.blog_address)}">내 한채</a>
-       <a class="btn btn-primary" href="${Links.write()}">글쓰기</a>`
-    : `<a class="btn btn-primary" href="${Links.build()}">한채 짓기</a>`;
+  const menuItem = (href, label) => `<a class="hc-me-item" href="${href}">${label}</a>`;
+  nav.innerHTML = `
+    ${user.blog_address
+      ? `<a class="btn btn-primary" href="${Links.write()}">글쓰기</a>`
+      : `<a class="btn btn-primary" href="${Links.build()}">한채 짓기</a>`}
+    <div class="hc-me-wrap">
+      <button type="button" class="hc-me" aria-expanded="false" aria-controls="hc-me-menu" aria-label="내 메뉴: ${escapeHTML(user.nickname)}">
+        ${avatarHTML(user.profile_image_url)}<span class="hc-me-name">${escapeHTML(user.nickname)}</span>
+        <svg class="hc-me-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="hc-me-menu" id="hc-me-menu" hidden>
+        <div class="hc-me-head">
+          <strong>${escapeHTML(user.nickname)}</strong>
+          <span>${escapeHTML(user.email || '')}</span>
+        </div>
+        <div class="hc-me-group">
+          ${menuItem(Links.me(), '내 정보')}
+          ${user.blog_address ? menuItem(Links.settings(), '한채 관리') + menuItem(Links.yard(user.blog_address), '내 마당 보기') : ''}
+        </div>
+        <div class="hc-me-group">
+          <button type="button" class="hc-me-item" data-me-logout>로그아웃</button>
+        </div>
+      </div>
+    </div>`;
   // 서비스 관리자에게만 마을 관리 (ADMIN-01)
   if (user.role === 'ADMIN') nav.insertAdjacentHTML('afterbegin', `<a class="plain" href="${Links.admin()}">마을 관리</a>`);
-  if (showMe) {
-    nav.insertAdjacentHTML('beforeend', `
-      <a class="hc-me" href="${Links.me()}" aria-label="내 정보: ${escapeHTML(user.nickname)}">
-        ${avatarHTML(user.profile_image_url)}<span>${escapeHTML(user.nickname)}</span>
-      </a>`);
-  }
   return { user };
 }
+
+// 헤더의 나 메뉴: 열고 닫기 · 로그아웃. 헤더를 다시 그려도 한 번만 건다
+function setMeMenu(open) {
+  const button = document.querySelector('.hc-me');
+  const menu = document.getElementById('hc-me-menu');
+  if (!button || !menu) return;
+  button.setAttribute('aria-expanded', String(open));
+  menu.hidden = !open;
+}
+
+document.addEventListener('click', async (e) => {
+  if (e.target.closest('[data-me-logout]')) {
+    try {
+      await Auth.logOut();
+      location.href = '/';
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+  const button = e.target.closest('.hc-me');
+  if (button) {
+    setMeMenu(button.getAttribute('aria-expanded') !== 'true');
+    return;
+  }
+  // 메뉴 바깥을 누르면 닫는다
+  if (!e.target.closest('.hc-me-menu')) setMeMenu(false);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const button = document.querySelector('.hc-me[aria-expanded="true"]');
+  if (!button) return;
+  setMeMenu(false);
+  button.focus();
+});
 
 // 대문의 이웃 맺기 · 끊기 버튼. 로그인 전이면 로그인으로 보낸다
 function bindNeighborButton(button, blog, onCount) {
