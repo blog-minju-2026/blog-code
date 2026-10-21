@@ -44,6 +44,13 @@ services:
       # 실제 메일을 보내 보려면 아래 두 줄을 채운다 (값은 커밋하지 않는다)
       EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      # 소셜 로그인을 해 보려면 제공사 앱 키를 넣는다. Redirect URI 는 http://localhost:8000/accounts/<제공사>/login/callback/
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      KAKAO_SECRET: ${KAKAO_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_SECRET: ${GOOGLE_SECRET:-}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
+      NAVER_SECRET: ${NAVER_SECRET:-}
     volumes:
       - media:/app/media
 

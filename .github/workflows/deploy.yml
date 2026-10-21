@@ -52,6 +52,13 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
           EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
+          # 소셜 로그인: 앱 키를 넣은 제공사만 켜진다 (비워 두면 그 버튼이 보이지 않는다)
+          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
+          KAKAO_SECRET: ${{ secrets.KAKAO_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_SECRET: ${{ secrets.GOOGLE_SECRET }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
         run: |
           {
             printf 'DJANGO_SECRET_KEY=%s\n' "$DJANGO_SECRET_KEY"
@@ -67,6 +74,9 @@ jobs:
             printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
             printf 'EMAIL_HOST_USER=%s\n' "$EMAIL_HOST_USER"
             printf 'EMAIL_HOST_PASSWORD=%s\n' "$EMAIL_HOST_PASSWORD"
+            for name in KAKAO_CLIENT_ID KAKAO_SECRET GOOGLE_CLIENT_ID GOOGLE_SECRET NAVER_CLIENT_ID NAVER_SECRET; do
+              printf '%s=%s\n' "$name" "${!name}"
+            done
             printf 'SERVE_MEDIA=1\n'
             printf 'MEDIA_ROOT=/app/media\n'
           } > bundle/hanchae.env

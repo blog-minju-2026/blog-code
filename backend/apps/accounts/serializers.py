@@ -68,7 +68,26 @@ class NicknameField(serializers.CharField):
         )
 
 
-class SignupSerializer(serializers.Serializer):
+class AgreementValidators:
+    """가입할 때 받는 동의 (이메일 가입 · 소셜 가입). 각 시리얼라이저가 agree_terms · agree_privacy · over_14 를 둔다."""
+
+    def validate_agree_terms(self, value):
+        if not value:
+            raise serializers.ValidationError("이용약관에 동의해야 가입할 수 있어요.")
+        return value
+
+    def validate_agree_privacy(self, value):
+        if not value:
+            raise serializers.ValidationError("개인정보 수집 · 이용에 동의해야 가입할 수 있어요.")
+        return value
+
+    def validate_over_14(self, value):
+        if not value:
+            raise serializers.ValidationError("만 14세 이상만 가입할 수 있어요.")
+        return value
+
+
+class SignupSerializer(AgreementValidators, serializers.Serializer):
     email = serializers.EmailField(max_length=254, error_messages={"invalid": "이메일 형식을 확인해 주세요."})
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     nickname = NicknameField()
@@ -87,20 +106,14 @@ class SignupSerializer(serializers.Serializer):
             raise serializers.ValidationError({"password": e.detail})
         return data
 
-    def validate_agree_terms(self, value):
-        if not value:
-            raise serializers.ValidationError("이용약관에 동의해야 가입할 수 있어요.")
-        return value
 
-    def validate_agree_privacy(self, value):
-        if not value:
-            raise serializers.ValidationError("개인정보 수집 · 이용에 동의해야 가입할 수 있어요.")
-        return value
+class SocialSignupSerializer(AgreementValidators, serializers.Serializer):
+    """소셜 계정으로 처음 온 사람의 가입 마무리. 이메일 · 비밀번호는 받지 않는다."""
 
-    def validate_over_14(self, value):
-        if not value:
-            raise serializers.ValidationError("만 14세 이상만 가입할 수 있어요.")
-        return value
+    nickname = NicknameField()
+    agree_terms = serializers.BooleanField()
+    agree_privacy = serializers.BooleanField()
+    over_14 = serializers.BooleanField()
 
 
 # 인증 메일 다시 보내기 · 비밀번호 재설정 메일

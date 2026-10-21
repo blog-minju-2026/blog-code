@@ -84,6 +84,8 @@ const Api = (function () {
     put: (url, body) => request('PUT', url, body),
     patch: (url, body) => request('PATCH', url, body),
     delete: (url) => request('DELETE', url),
+    // 폼을 직접 보낼 때(소셜 로그인) csrfmiddlewaretoken 으로 넣는다
+    csrfToken,
     // 파일 하나를 multipart/form-data 의 file 칸으로 올린다
     upload(url, file) {
       const form = new FormData();

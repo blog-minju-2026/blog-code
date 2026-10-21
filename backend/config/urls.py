@@ -1,6 +1,9 @@
+from importlib import import_module
+
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
+from django.views.generic.base import RedirectView
 from django.views.static import serve
 
 from config.frontend import frontend
@@ -19,11 +22,24 @@ urlpatterns = [
     path("django-admin/", admin.site.urls),
 ]
 
-# 소셜 로그인(카카오 · 구글 · 네이버)은 제공사 앱 키를 등록한 뒤 SOCIAL_LOGIN=1 로 켠다.
-# 켜기 전에는 allauth 화면(/accounts/...)을 열지 않는다. 열어 두면 버튼이 500 을 내고,
-# allauth 의 기본 가입 · 로그인 화면이 한채의 규칙(약관 동의, 이용 제한 검사)을 건너뛴다.
-if settings.SOCIAL_LOGIN:
-    urlpatterns += [path("accounts/", include("allauth.urls"))]
+
+def social_login_patterns(providers):
+    """소셜 로그인: 앱 키를 넣은 제공사의 /accounts/<제공사>/login/ 과 callback 만 연다.
+
+    allauth 의 다른 화면(가입 · 로그인 · 비밀번호 · 계정 연결)은 열지 않는다. 열면 한채의 규칙
+    (약관 동의, 인증할 때 비밀번호 확인, 요청 횟수 제한)을 건너뛰는 두 번째 입구가 된다.
+    처음 온 사람은 allauth 가 socialaccount_signup 으로 보내고, 로그인 화면이 가입을 마무리한다.
+    """
+    patterns = [
+        path("social/signup/", RedirectView.as_view(url="/login?social=signup"), name="socialaccount_signup"),
+    ]
+    for provider in providers:
+        patterns += import_module(f"allauth.socialaccount.providers.{provider}.urls").urlpatterns
+    return patterns
+
+
+if settings.SOCIAL_PROVIDERS:
+    urlpatterns += [path("accounts/", include(social_login_patterns(settings.SOCIAL_PROVIDERS)))]
 
 if settings.SERVE_MEDIA:
     urlpatterns += [re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT})]

@@ -19,13 +19,14 @@ function renderSeat(user, myBlog) {
       <h2>마을에 들어오세요</h2>
       <p class="seat-desc">로그인하면 내 한채를 짓고, 이웃을 맺고, 기록에 공감을 남길 수 있어요.</p>
       <a class="btn btn-primary btn-block" href="${login}">로그인</a>
-      ${SOCIAL_LOGIN_READY ? `<div class="social">
-        <a class="btn btn-secondary" href="/accounts/kakao/login/?next=/">카카오</a>
-        <a class="btn btn-secondary" href="/accounts/google/login/?next=/">구글</a>
-        <a class="btn btn-secondary" href="/accounts/naver/login/?next=/">네이버</a>
-      </div>` : ''}
+      <div class="social" hidden></div>
       <p class="seat-join">처음이신가요? <a class="text-link" href="/login?tab=signup">이메일로 가입하기</a></p>`;
     neighbors.hidden = true;
+    // 서버에 앱 키를 넣은 소셜 로그인만 버튼을 보인다
+    const social = seat.querySelector('.social');
+    Auth.socialStatus().then(({ providers }) => {
+      social.hidden = !renderSocialButtons(social, providers, '/', { short: true, brand: true });
+    }).catch(() => {});
     return;
   }
 

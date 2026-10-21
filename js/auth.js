@@ -102,7 +102,50 @@ const Auth = (function () {
     await Api.post('/api/auth/email/resend', { email });
   }
 
+  // ----- 소셜 로그인 (AUTH-03) -----
+  // 켜진 제공사와, 제공사에서 막 돌아온 사람의 다음 할 일: { providers, signup, blocked }
+  // signup: 처음 온 사람의 { provider, provider_name, email, nickname } · blocked: 이용 제한 { reason, ends_at }
+  function socialStatus() {
+    return Api.get('/api/auth/social');
+  }
+
+  // 제공사 로그인으로 보낸다. 끝나면 next 로 돌아오고, 처음 온 사람은 /login?social=signup 으로 온다.
+  // allauth 는 POST 로 들어와야 제공사로 보내므로 폼을 만들어 제출한다
+  async function startSocialLogin(provider, next) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = `/accounts/${encodeURIComponent(provider)}/login/`;
+    const fields = { csrfmiddlewaretoken: await Api.csrfToken(), process: 'login', next };
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.append(input);
+    });
+    document.body.append(form);
+    form.submit();
+  }
+
+  // 소셜 계정으로 처음 온 사람의 가입을 마친다. 마치면 바로 로그인된다.
+  // 돌려주는 값: { ok: true, next } 또는 { ok: false, code, message, fields }
+  async function finishSocialSignup({ nickname, agreeTerms, agreePrivacy, over14 }) {
+    try {
+      const data = await Api.post('/api/auth/social/signup', {
+        nickname: nickname.trim(),
+        agree_terms: agreeTerms,
+        agree_privacy: agreePrivacy,
+        over_14: over14,
+      });
+      mePromise = Promise.resolve(data.user);
+      return { ok: true, next: data.next };
+    } catch (err) {
+      return { ok: false, code: err.code, message: err.firstMessage || err.message, fields: err.fields };
+    }
+  }
+
   return {
     signUp, logIn, logOut, currentUser, refresh, verifyEmail, resendVerification, requestPasswordReset, resetPassword,
+    socialStatus, startSocialLogin, finishSocialSignup,
   };
 })();
