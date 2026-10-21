@@ -28,6 +28,8 @@ function showTab(name) {
   signupForm.hidden = name !== 'signup';
   forgotForm.hidden = name !== 'forgot';
   socialForm.hidden = name !== 'social';
+  // 가입 마무리는 로그인 화면의 머리(제목 · 안내 · 탭) 없이 들어온 계정부터 보인다 (시안)
+  document.querySelectorAll('.login-head').forEach((el) => { el.hidden = name === 'social'; });
   if (name === 'forgot' && !forgotForm.elements.email.value) {
     forgotForm.elements.email.value = loginForm.elements.email.value.trim();
   }
@@ -170,12 +172,21 @@ forgotForm.addEventListener('submit', (e) => {
 });
 
 // ----- 소셜 로그인 (AUTH-03) -----
+// 결과마다 [문구, 상자 모양] — 취소 · 가입이 끊김은 안내(회색), 나머지는 오류(주홍)
 const SOCIAL_MESSAGES = {
-  cancelled: '소셜 로그인을 취소했어요.',
-  error: '소셜 로그인을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요.',
-  inactive: '탈퇴한 계정이에요.',
-  suspended: '이용이 제한된 계정이에요.',
+  cancelled: ['소셜 로그인을 취소했어요.', 'info'],
+  error: ['소셜 로그인을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요.', 'error'],
+  inactive: ['탈퇴한 계정이에요.', 'error'],
+  suspended: ['이용이 제한된 계정이에요.', 'error'],
+  expired: ['소셜 로그인을 처음부터 다시 해 주세요.', 'info'],
 };
+
+function showSocialResult(message, tone) {
+  const box = document.getElementById('social-result');
+  box.className = `social-result is-${tone}`;
+  box.textContent = message;
+  box.hidden = false;
+}
 
 // 처음 온 사람: 어느 계정으로 왔는지 보이고, 제공사의 이름을 닉네임 칸에 미리 채워 약관 동의를 받는다
 const socialNickname = socialForm.elements.nickname;
@@ -260,7 +271,7 @@ socialForm.addEventListener('submit', async (e) => {
     // 가입을 기다리던 정보가 사라졌으면(오래 두었거나 다른 창에서 마쳤으면) 로그인 버튼부터 다시
     if (result.code === 'SOCIAL_SIGNUP_EXPIRED') {
       showTab('login');
-      showError(loginForm, result.message);
+      showSocialResult(result.message, 'info');
     }
     // 그새 누가 이 닉네임을 가져갔으면 닉네임 칸 아래에 알린다
     if (result.fields && result.fields.nickname) {
@@ -286,11 +297,11 @@ async function setUpSocialLogin() {
   const result = params.get('social');
   if (result === 'signup') {
     if (status.signup) showSocialSignup(status.signup);
-    else showError(loginForm, '소셜 로그인을 처음부터 다시 해 주세요.');
+    else showSocialResult(...SOCIAL_MESSAGES.expired);
   } else if (result === 'suspended' && status.blocked) {
-    showError(loginForm, suspendedMessage(status.blocked));
+    showSocialResult(suspendedMessage(status.blocked), 'error');
   } else if (SOCIAL_MESSAGES[result]) {
-    showError(loginForm, SOCIAL_MESSAGES[result]);
+    showSocialResult(...SOCIAL_MESSAGES[result]);
   }
 }
 setUpSocialLogin();
