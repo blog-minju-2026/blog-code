@@ -144,7 +144,13 @@ const Auth = (function () {
     }
   }
 
+  // 닉네임을 쓸 수 있는지: { available, reason } (reason: INVALID · TAKEN)
+  function nicknameAvailable(nickname) {
+    return Api.get(`/api/auth/nickname-available?nickname=${encodeURIComponent(nickname)}`);
+  }
+
   return {
+    nicknameAvailable,
     signUp, logIn, logOut, currentUser, refresh, verifyEmail, resendVerification, requestPasswordReset, resetPassword,
     socialStatus, startSocialLogin, finishSocialSignup,
   };

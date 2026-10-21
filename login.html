@@ -26,10 +26,11 @@
 
   <main class="login">
     <section class="login-card card" aria-labelledby="login-title">
-      <h1 id="login-title" class="login-title">마을에 들어오세요</h1>
-      <p class="login-desc">로그인하면 내 한채를 짓고, 이웃을 맺고, 기록에 공감을 남길 수 있어요.</p>
+      <!-- 소셜 가입 마무리에서는 머리(제목 · 안내 · 탭)를 숨긴다 (login.js 의 showTab) -->
+      <h1 id="login-title" class="login-title login-head">마을에 들어오세요</h1>
+      <p class="login-desc login-head">로그인하면 내 한채를 짓고, 이웃을 맺고, 기록에 공감을 남길 수 있어요.</p>
 
-      <div class="login-tabs" role="tablist" aria-label="로그인 · 가입">
+      <div class="login-tabs login-head" role="tablist" aria-label="로그인 · 가입">
         <button type="button" role="tab" id="tab-login" data-tab="login" aria-controls="login-form" aria-selected="true">로그인</button>
         <button type="button" role="tab" id="tab-signup" data-tab="signup" aria-controls="signup-form" aria-selected="false" tabindex="-1">이메일로 가입</button>
       </div>
@@ -48,6 +49,8 @@
       <p class="login-notice" id="reset-done" role="status" hidden>새 비밀번호를 정했어요. 새 비밀번호로 로그인해 주세요.</p>
 
       <form id="login-form" class="login-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+        <!-- 제공사에서 돌아왔을 때의 결과 (취소 · 실패 · 이용 제한 · 탈퇴 · 가입이 끊김) -->
+        <p class="social-result" id="social-result" role="alert" hidden></p>
         <div class="field">
           <label for="login-email">이메일</label>
           <input id="login-email" type="email" name="email" autocomplete="email" required>
@@ -98,14 +101,24 @@
 
       <!-- 소셜 가입 마무리: 제공사에서 처음 돌아온 사람 (/login?social=signup) -->
       <form id="social-signup-form" class="login-form" aria-labelledby="social-signup-title" novalidate hidden>
-        <h2 id="social-signup-title" class="login-subtitle"><span id="social-provider-name"></span> 계정으로 가입하기</h2>
-        <p class="login-desc" id="social-signup-email"></p>
+        <!-- 어느 계정으로 들어왔는지: 제공사 로고 · 받은 이메일 -->
+        <div class="social-account">
+          <span class="social-account-mark" id="social-account-mark" aria-hidden="true"></span>
+          <span class="social-account-text">
+            <span class="social-account-title"><span id="social-provider-name"></span> 계정을 확인했어요</span>
+            <span class="social-account-email" id="social-account-email"></span>
+          </span>
+        </div>
+        <h2 id="social-signup-title" class="login-title">마을에 처음 오셨네요</h2>
+        <p class="login-desc" id="social-signup-desc"></p>
         <div class="field">
           <label for="social-nickname">닉네임 <span class="hint">2~20자</span></label>
-          <input id="social-nickname" type="text" name="nickname" autocomplete="nickname" minlength="2" maxlength="20" required>
+          <input id="social-nickname" type="text" name="nickname" autocomplete="nickname" minlength="2" maxlength="20"
+            aria-describedby="social-nickname-status" required>
+          <span class="field-status" id="social-nickname-status" aria-live="polite"></span>
         </div>
-        <fieldset class="agrees">
-          <legend class="sr-only">약관 동의</legend>
+        <fieldset class="agrees agrees-box">
+          <legend>약관 동의</legend>
           <label class="check"><input type="checkbox" name="agreeTerms"> 이용약관에 동의해요 (필수)</label>
           <label class="check"><input type="checkbox" name="agreePrivacy"> 개인정보 수집 · 이용에 동의해요 (필수)</label>
           <label class="check"><input type="checkbox" name="over14"> 만 14세 이상이에요 (필수)</label>

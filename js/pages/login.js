@@ -28,6 +28,8 @@ function showTab(name) {
   signupForm.hidden = name !== 'signup';
   forgotForm.hidden = name !== 'forgot';
   socialForm.hidden = name !== 'social';
+  // 가입 마무리는 로그인 화면의 머리(제목 · 안내 · 탭) 없이 들어온 계정부터 보인다 (시안)
+  document.querySelectorAll('.login-head').forEach((el) => { el.hidden = name === 'social'; });
   if (name === 'forgot' && !forgotForm.elements.email.value) {
     forgotForm.elements.email.value = loginForm.elements.email.value.trim();
   }
@@ -170,30 +172,93 @@ forgotForm.addEventListener('submit', (e) => {
 });
 
 // ----- 소셜 로그인 (AUTH-03) -----
+// 결과마다 [문구, 상자 모양] — 취소 · 가입이 끊김은 안내(회색), 나머지는 오류(주홍)
 const SOCIAL_MESSAGES = {
-  cancelled: '소셜 로그인을 취소했어요.',
-  error: '소셜 로그인을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요.',
-  inactive: '탈퇴한 계정이에요.',
-  suspended: '이용이 제한된 계정이에요.',
+  cancelled: ['소셜 로그인을 취소했어요.', 'info'],
+  error: ['소셜 로그인을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요.', 'error'],
+  inactive: ['탈퇴한 계정이에요.', 'error'],
+  suspended: ['이용이 제한된 계정이에요.', 'error'],
+  expired: ['소셜 로그인을 처음부터 다시 해 주세요.', 'info'],
 };
 
-// 처음 온 사람: 제공사에서 받은 이름을 닉네임 칸에 미리 채우고 약관 동의를 받는다
-function showSocialSignup(signup) {
-  document.getElementById('social-provider-name').textContent = signup.provider_name;
-  document.getElementById('social-signup-email').textContent = signup.email
-    ? `${signup.email} 로 가입해요. 나중에 '비밀번호를 잊었나요?'에서 비밀번호를 정하면 이메일로도 로그인할 수 있어요.`
-    : `${signup.provider_name}에서 이메일을 받지 못해 이메일 없이 가입해요. 로그인은 ${signup.provider_name}로 해 주세요.`;
-  socialForm.elements.nickname.value = signup.nickname;
-  showTab('social');
-  socialForm.elements.nickname.focus();
+function showSocialResult(message, tone) {
+  const box = document.getElementById('social-result');
+  box.className = `social-result is-${tone}`;
+  box.textContent = message;
+  box.hidden = false;
 }
 
-socialForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const { nickname, agreeTerms, agreePrivacy, over14 } = socialForm.elements;
-  const name = nickname.value.trim();
+// 처음 온 사람: 어느 계정으로 왔는지 보이고, 제공사의 이름을 닉네임 칸에 미리 채워 약관 동의를 받는다
+const socialNickname = socialForm.elements.nickname;
+const socialNicknameStatus = document.getElementById('social-nickname-status');
+const NICKNAME_OK_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+let socialProviderName = '';
+let nicknameCheckTimer = null;
 
-  if (name.length < 2 || name.length > 20) return showError(socialForm, '닉네임은 2~20자로 입력해 주세요.');
+function showNicknameStatus(ok, message) {
+  socialNicknameStatus.className = `field-status ${ok ? 'is-ok' : 'is-bad'}`;
+  socialNicknameStatus.innerHTML = ok ? `${NICKNAME_OK_ICON}${escapeHTML(message)}` : escapeHTML(message);
+  socialNickname.setAttribute('aria-invalid', String(!ok));
+}
+
+function clearNicknameStatus() {
+  socialNicknameStatus.textContent = '';
+  socialNickname.removeAttribute('aria-invalid');
+}
+
+// 입력이 멈추면 쓸 수 있는지 본다. 돌려주는 값: 쓸 수 있으면 true (확인하지 못했으면 null, 서버가 가입 때 다시 본다)
+async function checkSocialNickname({ prefilled = false } = {}) {
+  const nickname = socialNickname.value.trim();
+  if (nickname.length < 2 || nickname.length > 20) {
+    showNicknameStatus(false, '닉네임은 2~20자로 입력해 주세요.');
+    return false;
+  }
+  let result;
+  try {
+    result = await Auth.nicknameAvailable(nickname);
+  } catch (err) {
+    clearNicknameStatus();
+    return null;
+  }
+  if (nickname !== socialNickname.value.trim()) return null; // 그새 바뀌었으면 버린다
+  if (!result.available) {
+    showNicknameStatus(false, result.reason === 'TAKEN' ? '이미 쓰고 있는 닉네임이에요.' : '쓸 수 없는 닉네임이에요.');
+    return false;
+  }
+  showNicknameStatus(true, prefilled ? `쓸 수 있는 닉네임이에요 · ${socialProviderName}의 이름을 미리 채웠어요` : '쓸 수 있는 닉네임이에요');
+  return true;
+}
+
+socialNickname.addEventListener('input', () => {
+  clearNicknameStatus();
+  clearTimeout(nicknameCheckTimer);
+  nicknameCheckTimer = setTimeout(checkSocialNickname, 300);
+});
+
+function showSocialSignup(signup) {
+  socialProviderName = signup.provider_name;
+  const mark = document.getElementById('social-account-mark');
+  mark.className = `social-account-mark is-${signup.provider}`;
+  mark.innerHTML = SOCIAL_PROVIDER_MARKS[signup.provider] || '';
+  document.getElementById('social-provider-name').textContent = signup.provider_name;
+  document.getElementById('social-account-email').textContent = signup.email || '이메일은 받지 못했어요';
+  document.getElementById('social-signup-desc').textContent = signup.email
+    ? "닉네임을 정하고 약관에 동의하면 가입이 끝나요. 나중에 '비밀번호를 잊었나요?'에서 비밀번호를 정하면 이메일로도 로그인할 수 있어요."
+    : `이메일 없이 가입해요. 비밀번호 재설정 메일은 받을 수 없으니 로그인은 ${signup.provider_name}로 해 주세요.`;
+  socialNickname.value = signup.nickname;
+  showTab('social');
+  socialNickname.focus();
+  if (signup.nickname) checkSocialNickname({ prefilled: true });
+}
+
+socialForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { agreeTerms, agreePrivacy, over14 } = socialForm.elements;
+  const name = socialNickname.value.trim();
+  showError(socialForm, '');
+
+  clearTimeout(nicknameCheckTimer);
+  if (await checkSocialNickname() === false) return socialNickname.focus();
   if (!agreedToAll(socialForm)) return showError(socialForm, '필수 항목에 모두 동의해 주세요.');
 
   submitWith(socialForm, async () => {
@@ -206,7 +271,13 @@ socialForm.addEventListener('submit', (e) => {
     // 가입을 기다리던 정보가 사라졌으면(오래 두었거나 다른 창에서 마쳤으면) 로그인 버튼부터 다시
     if (result.code === 'SOCIAL_SIGNUP_EXPIRED') {
       showTab('login');
-      showError(loginForm, result.message);
+      showSocialResult(result.message, 'info');
+    }
+    // 그새 누가 이 닉네임을 가져갔으면 닉네임 칸 아래에 알린다
+    if (result.fields && result.fields.nickname) {
+      showNicknameStatus(false, result.fields.nickname);
+      socialNickname.focus();
+      return { ...result, message: '' };
     }
     return result;
   }, (result) => { location.href = safeNext(result.next); });
@@ -226,11 +297,11 @@ async function setUpSocialLogin() {
   const result = params.get('social');
   if (result === 'signup') {
     if (status.signup) showSocialSignup(status.signup);
-    else showError(loginForm, '소셜 로그인을 처음부터 다시 해 주세요.');
+    else showSocialResult(...SOCIAL_MESSAGES.expired);
   } else if (result === 'suspended' && status.blocked) {
-    showError(loginForm, suspendedMessage(status.blocked));
+    showSocialResult(suspendedMessage(status.blocked), 'error');
   } else if (SOCIAL_MESSAGES[result]) {
-    showError(loginForm, SOCIAL_MESSAGES[result]);
+    showSocialResult(...SOCIAL_MESSAGES[result]);
   }
 }
 setUpSocialLogin();
