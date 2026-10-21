@@ -1,0 +1,14 @@
+{% comment %}
+/accounts/<제공사>/login/ 을 GET 으로 열면 allauth 가 '계속할까요?' 화면을 보인다. 한채는 로그인 화면의 버튼이
+POST 로 바로 보내므로(js/common.js 의 startSocialLogin) 이 주소를 직접 연 사람은 로그인 화면으로 돌려보낸다.
+{% endcomment %}<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=/login">
+  <title>한채 · 로그인</title>
+</head>
+<body>
+  <p><a href="/login">로그인 화면으로 가기</a></p>
+</body>
+</html>

@@ -142,6 +142,58 @@ a.link:hover,
   width: 100%;
 }
 
+/* 소셜 로그인 버튼: 제공사 색 (로그인 화면 · 마을의 내 자리, js/common.js 의 renderSocialButtons).
+   카카오 · 네이버 로그인 버튼 안내를 따른다.
+   네이버의 공식 흰 글자는 초록 바탕에서 대비가 모자라 먹색 글자로 쓴다 */
+.btn-social {
+  position: relative;
+  min-height: 48px;
+  gap: 10px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.btn-social-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.btn-social:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-social-kakao {
+  background: #fee500;
+  color: #191919;
+}
+
+.btn-social-kakao:hover {
+  background: #f2d900;
+}
+
+.btn-social-google {
+  border-color: #747775;
+  background: #ffffff;
+  color: #1f1f1f;
+}
+
+.btn-social-google:hover {
+  background: #f2f2f2;
+}
+
+.btn-social-naver {
+  background: #03c75a;
+  color: #0b1f12;
+}
+
+.btn-social-naver:hover {
+  background: #02b351;
+}
+
 /* ===== 헤더 ===== */
 .hc-header {
   background: var(--paper);

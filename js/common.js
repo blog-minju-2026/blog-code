@@ -53,8 +53,41 @@ function safeNext(value) {
   }
 }
 
-// 소셜 로그인 버튼을 보일지. 제공사 앱 키를 등록하고 서버의 SOCIAL_LOGIN=1 을 켠 뒤 true 로
-const SOCIAL_LOGIN_READY = false;
+// ----- 소셜 로그인 버튼 (AUTH-03) -----
+// 서버에 앱 키를 넣은 제공사(GET /api/auth/social 의 providers)만 그린다. 끝나면 next 로 돌아온다
+// brand: 제공사 색 버튼에 로고 (css/hanchae.css 의 .btn-social). 아니면 한채 보조 버튼
+const SOCIAL_PROVIDER_NAMES = { kakao: '카카오', google: '구글', naver: '네이버' };
+
+const SOCIAL_PROVIDER_MARKS = {
+  kakao: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3.5c-5 0-9 3.1-9 7 0 2.5 1.7 4.7 4.2 5.9l-1 3.7c-.1.3.3.6.6.4l4.3-2.9c.3 0 .6.1.9.1 5 0 9-3.1 9-7s-4-7.2-9-7.2z"/></svg>',
+  google: '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>',
+  naver: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M15.6 12.7 8.2 2H2v20h6.4V11.3L15.8 22H22V2h-6.4z"/></svg>',
+};
+
+function renderSocialButtons(box, providers, next, { short = false, brand = false } = {}) {
+  box.innerHTML = providers
+    .filter((provider) => SOCIAL_PROVIDER_NAMES[provider])
+    .map((provider) => {
+      const name = SOCIAL_PROVIDER_NAMES[provider];
+      const label = short ? name : `${name}로 로그인`;
+      if (!brand) {
+        return `<button type="button" class="btn btn-secondary" data-social-provider="${provider}">${label}</button>`;
+      }
+      return `<button type="button" class="btn btn-social btn-social-${provider}" data-social-provider="${provider}">`
+        + `<span class="btn-social-mark">${SOCIAL_PROVIDER_MARKS[provider]}</span>${label}</button>`;
+    })
+    .join('');
+  box.querySelectorAll('[data-social-provider]').forEach((button) => {
+    button.addEventListener('click', () => {
+      box.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+      Auth.startSocialLogin(button.dataset.socialProvider, next).catch(() => {
+        box.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+        alert('잠시 후 다시 시도해 주세요.');
+      });
+    });
+  });
+  return box.childElementCount > 0;
+}
 
 // ----- 글자 -----
 function escapeHTML(text) {

@@ -8,11 +8,18 @@ from datetime import timedelta
 
 from allauth.account.adapter import get_adapter
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
+from allauth.socialaccount.adapter import get_adapter as get_social_adapter
+from allauth.socialaccount.internal.flows.signup import (
+    clear_pending_signup,
+    complete_social_signup,
+    get_pending_signup,
+)
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_str
@@ -29,6 +36,7 @@ from apps.common.permissions import EnforceCsrfMixin, IsMember
 from apps.posts.images import get_own_image
 
 from . import attempts
+from .adapter import SOCIAL_BLOCKED_SESSION_KEY
 from .models import User, VerificationMailLog
 from .pending import expired_pending_signups, pending_signups, removable_pending_signups
 from .serializers import (
@@ -39,9 +47,11 @@ from .serializers import (
     NicknameField,
     PasswordResetConfirmSerializer,
     SignupSerializer,
+    SocialSignupSerializer,
     check_new_password,
     me_payload,
 )
+from .social import pending_signup_payload, verified_email
 
 logger = logging.getLogger(__name__)
 # 같은 주소로 인증 메일을 다시 보낼 수 있는 간격
@@ -311,6 +321,77 @@ class LoginView(EnforceCsrfMixin, APIView):
 
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         return Response({"user": me_payload(user, request)})
+
+
+class SocialStatusView(APIView):
+    """GET /api/auth/social — 켜진 소셜 로그인 제공사와, 제공사에서 막 돌아온 사람의 다음 할 일 (AUTH-03).
+
+    signup: 처음 온 사람이 가입을 마무리할 때 보여 줄 값 (없으면 null)
+    blocked: 이용 제한으로 소셜 로그인을 막았을 때의 사유 · 기한. 한 번 알리면 지운다 (없으면 null)
+    """
+
+    def get(self, request):
+        sociallogin = get_pending_signup(request._request)
+        return Response(
+            {
+                "providers": settings.SOCIAL_PROVIDERS,
+                "signup": pending_signup_payload(sociallogin) if sociallogin else None,
+                "blocked": request.session.pop(SOCIAL_BLOCKED_SESSION_KEY, None),
+            }
+        )
+
+
+class SocialSignupView(EnforceCsrfMixin, APIView):
+    """POST /api/auth/social/signup — 소셜 계정으로 처음 온 사람의 가입을 마치고 로그인한다 (AUTH-03).
+
+    이메일 가입처럼 닉네임과 약관 · 개인정보 · 만 14세 동의를 받는다. 비밀번호는 없다(필요하면 비밀번호 재설정으로 정한다).
+    이메일은 제공사가 인증했다고 알려 준 것만 쓴다. 그 이메일로 인증을 기다리는 가입이 있으면,
+    제공사가 이 사람이 메일 주인임을 확인했으므로 그 가입은 자리를 내준다.
+    """
+
+    throttle_scope = "signup"
+
+    def post(self, request):
+        django_request = request._request
+        sociallogin = get_pending_signup(django_request)
+        if sociallogin is None:
+            raise APIError(409, "SOCIAL_SIGNUP_EXPIRED", "소셜 로그인을 처음부터 다시 해 주세요.")
+        serializer = SocialSignupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        nickname = serializer.validated_data["nickname"]
+        email = verified_email(sociallogin)
+
+        # 인증을 안 마친 가입은 이 닉네임 · 이메일 자리를 내준다
+        taken = Q(nickname=nickname) | Q(email__iexact=email) if email else Q(nickname=nickname)
+        removable_pending_signups().filter(taken).delete()
+
+        conflicts = {}
+        if email and User.objects.filter(email__iexact=email).exists():
+            conflicts["email"] = "이미 가입한 이메일이에요. 이메일로 로그인해 주세요."
+        if User.objects.filter(nickname=nickname).exists():
+            conflicts["nickname"] = "이미 쓰고 있는 닉네임이에요."
+        if conflicts:
+            raise APIError(409, "CONFLICT", next(iter(conflicts.values())), fields=conflicts)
+
+        now = timezone.now()
+        user = sociallogin.user
+        user.email = email
+        user.nickname = nickname
+        user.terms_agreed_at = now
+        user.privacy_agreed_at = now
+        # 인증된 그 이메일만 남긴다 (인증되지 않은 주소가 남의 가입을 막지 않게)
+        sociallogin.email_addresses = [a for a in sociallogin.email_addresses if a.verified and a.email.lower() == email]
+        try:
+            with transaction.atomic():
+                get_social_adapter(django_request).save_user(django_request, sociallogin)
+        except IntegrityError:
+            raise APIError(409, "CONFLICT", "이미 쓰고 있는 값이 있어요.")
+        clear_pending_signup(django_request)
+        complete_social_signup(django_request, sociallogin)
+        return Response(
+            {"user": me_payload(user, request), "next": sociallogin.get_redirect_url(django_request) or "/"},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LogoutView(APIView):

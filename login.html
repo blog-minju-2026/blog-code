@@ -60,14 +60,10 @@
         <p class="form-error" role="alert"></p>
         <button type="submit" class="btn btn-primary btn-block form-submit">로그인</button>
 
-        <!-- 소셜 로그인: 준비되면 login.js 가 보인다 (common.js 의 SOCIAL_LOGIN_READY) -->
+        <!-- 소셜 로그인: 서버에 앱 키를 넣은 제공사의 버튼만 login.js 가 그린다 -->
         <div class="social-login" id="social-login" hidden>
           <div class="divider"><span>또는</span></div>
-          <div class="social">
-            <a class="btn btn-secondary social-link" data-provider="kakao" href="/accounts/kakao/login/">카카오로 로그인</a>
-            <a class="btn btn-secondary social-link" data-provider="google" href="/accounts/google/login/">구글로 로그인</a>
-            <a class="btn btn-secondary social-link" data-provider="naver" href="/accounts/naver/login/">네이버로 로그인</a>
-          </div>
+          <div class="social" id="social-buttons"></div>
         </div>
         <p class="login-switch">처음이신가요? <button type="button" class="text-link" data-tab="signup">이메일로 가입하기</button></p>
       </form>
@@ -98,6 +94,25 @@
         <p class="form-error" role="alert"></p>
         <button type="submit" class="btn btn-primary btn-block form-submit">가입하기</button>
         <p class="login-switch">이미 회원이신가요? <button type="button" class="text-link" data-tab="login">로그인</button></p>
+      </form>
+
+      <!-- 소셜 가입 마무리: 제공사에서 처음 돌아온 사람 (/login?social=signup) -->
+      <form id="social-signup-form" class="login-form" aria-labelledby="social-signup-title" novalidate hidden>
+        <h2 id="social-signup-title" class="login-subtitle"><span id="social-provider-name"></span> 계정으로 가입하기</h2>
+        <p class="login-desc" id="social-signup-email"></p>
+        <div class="field">
+          <label for="social-nickname">닉네임 <span class="hint">2~20자</span></label>
+          <input id="social-nickname" type="text" name="nickname" autocomplete="nickname" minlength="2" maxlength="20" required>
+        </div>
+        <fieldset class="agrees">
+          <legend class="sr-only">약관 동의</legend>
+          <label class="check"><input type="checkbox" name="agreeTerms"> 이용약관에 동의해요 (필수)</label>
+          <label class="check"><input type="checkbox" name="agreePrivacy"> 개인정보 수집 · 이용에 동의해요 (필수)</label>
+          <label class="check"><input type="checkbox" name="over14"> 만 14세 이상이에요 (필수)</label>
+        </fieldset>
+        <p class="form-error" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block form-submit">가입 마치기</button>
+        <p class="login-switch"><button type="button" class="text-link" data-tab="login">다른 방법으로 로그인</button></p>
       </form>
 
       <!-- 비밀번호 다시 정하기: 메일로 받은 링크(/reset-password)에서 새 비밀번호를 정한다 -->

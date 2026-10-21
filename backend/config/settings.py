@@ -146,12 +146,37 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_UNIQUE_EMAIL = True
-SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
-SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
-# 소셜 로그인을 켤지. 제공사 앱 키를 Django 운영 화면의 Social applications 에 등록한 뒤 1 로 (config/urls.py)
-SOCIAL_LOGIN = env("SOCIAL_LOGIN", "0") == "1"
 # 인증 메일의 링크를 프론트의 인증 화면(/verify-email)으로
 ACCOUNT_ADAPTER = "apps.accounts.adapter.AccountAdapter"
+# allauth 가 로그인 뒤 돌아갈 곳(next)이 없을 때
+LOGIN_REDIRECT_URL = "/"
+# 메일의 링크 · 소셜 로그인의 callback 주소를 사이트의 접속 방식으로 만든다 (제공사에 등록한 주소와 맞아야 한다)
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = SCHEME
+
+# 소셜 로그인 (카카오 · 구글 · 네이버, AUTH-03). 앱 키를 넣은 제공사만 켜진다.
+# 켜진 제공사의 /accounts/<제공사>/login/ 과 callback 만 열고(config/urls.py), 첫 가입의 닉네임 · 약관 동의는
+# 로그인 화면이 받는다 (POST /api/auth/social/signup).
+SOCIAL_PROVIDER_KEYS = {
+    "kakao": ("KAKAO_CLIENT_ID", "KAKAO_SECRET"),  # REST API 키 · 보안의 Client Secret
+    "google": ("GOOGLE_CLIENT_ID", "GOOGLE_SECRET"),
+    "naver": ("NAVER_CLIENT_ID", "NAVER_SECRET"),
+}
+SOCIALACCOUNT_PROVIDERS = {
+    provider: {"APPS": [{"client_id": env(id_name), "secret": env(secret_name, "")}]}
+    for provider, (id_name, secret_name) in SOCIAL_PROVIDER_KEYS.items()
+    if env(id_name)
+}
+if "google" in SOCIALACCOUNT_PROVIDERS:
+    SOCIALACCOUNT_PROVIDERS["google"]["SCOPE"] = ["profile", "email"]
+SOCIAL_PROVIDERS = list(SOCIALACCOUNT_PROVIDERS)
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapter.SocialAccountAdapter"
+SOCIALACCOUNT_QUERY_EMAIL = True
+# 제공사가 본인을 확인했으므로 메일 인증을 따로 받지 않는다. 대신 제공사가 인증했다고 알려 준 이메일만 쓴다 (adapter.py)
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
+# 제공사가 인증한 이메일이 한채에서도 인증을 마친 회원의 이메일이면 그 회원으로 로그인하고 계정을 잇는다
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+SOCIALACCOUNT_STORE_TOKENS = False
 
 # allauth 의 EmailAddress 는 조건부 유일 제약을 쓰는데 MySQL 은 이를 지원하지 않는다.
 # 같은 이메일 중복은 users.email 유일 제약과 ACCOUNT_UNIQUE_EMAIL 이 대신 막는다.

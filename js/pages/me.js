@@ -159,7 +159,10 @@ async function main() {
   }
   await renderHeaderNav(document.getElementById('header-nav'));
   nicknameInput.value = me.nickname;
-  document.getElementById('email').textContent = me.email;
+  // 소셜 계정으로 가입하며 이메일을 받지 못한 회원은 이메일이 없다
+  document.getElementById('email').textContent = me.email || '없음';
+  document.getElementById('email-verified').hidden = !me.email;
+  if (!me.email) document.getElementById('email-hint').textContent = '소셜 계정으로 가입해 이메일 없이 로그인해요.';
   renderPhoto();
   await renderMyHouse();
   document.getElementById('house').hidden = false;
