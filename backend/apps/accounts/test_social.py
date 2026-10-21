@@ -15,7 +15,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, override_settings
 from django.urls import include, path
 from django.utils import timezone
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from apps.moderation.models import UserSanction
 from config import urls as site_urls
@@ -245,3 +245,36 @@ class SocialLoginPagesTests(APITestCase):
         for url in ("/accounts/login/", "/accounts/signup/", "/accounts/password/reset/", "/accounts/3rdparty/",
                     "/accounts/naver/login/"):
             self.assertEqual(self.client.get(url).status_code, 404, url)
+
+
+@social_settings
+class FrontendRequestTests(APITestCase):
+    """화면(js/auth.js)이 보내는 그대로: CSRF 검사를 켠 채 부른다."""
+
+    def setUp(self):
+        self.client = APIClient(enforce_csrf_checks=True)
+        self.client.get("/api/auth/csrf")
+        self.token = self.client.cookies["csrftoken"].value
+
+    def test_provider_button_form_needs_csrf_token(self):
+        # startSocialLogin 의 폼: csrfmiddlewaretoken · process · next
+        form = {"process": "login", "next": "/write"}
+        self.assertEqual(self.client.post("/accounts/kakao/login/", form).status_code, 403)
+        res = self.client.post("/accounts/kakao/login/", {**form, "csrfmiddlewaretoken": self.token})
+        self.assertEqual(res.status_code, 302)
+        self.assertTrue(res["Location"].startswith("https://kauth.kakao.com/"))
+
+    def test_finish_signup_with_csrf_header(self):
+        come_back_from_provider(self.client, kakao_login())
+        body = {"nickname": "민주", **AGREE}  # finishSocialSignup 이 보내는 칸
+        self.assertEqual(self.client.post("/api/auth/social/signup", body, format="json").status_code, 403)
+
+        status = self.client.get("/api/auth/social").json()
+        self.assertEqual(set(status), {"providers", "signup", "blocked"})
+        self.assertEqual(set(status["signup"]), {"provider", "provider_name", "email", "nickname"})
+        self.assertEqual(self.client.get("/api/auth/nickname-available", {"nickname": "민주"}).json(),
+                         {"available": True, "reason": None})
+
+        res = self.client.post("/api/auth/social/signup", body, format="json", HTTP_X_CSRFTOKEN=self.token)
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(set(res.json()), {"user", "next"})
