@@ -135,6 +135,86 @@
   gap: 4px;
 }
 
+/* 소셜 가입 마무리의 약관 동의: 테두리 상자에 이름표 */
+.agrees-box {
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.agrees-box legend {
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.agrees-box .check {
+  min-height: var(--touch-target);
+}
+
+/* 소셜 가입 마무리: 어느 계정으로 들어왔는지 */
+.social-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--hanji-deep);
+}
+
+.social-account-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+}
+
+.social-account-mark.is-kakao {
+  background: #fee500;
+  color: #191919;
+}
+
+.social-account-mark.is-google {
+  border: 1px solid #747775;
+  background: #ffffff;
+}
+
+.social-account-mark.is-naver {
+  background: #03c75a;
+  color: #0b1f12;
+}
+
+.social-account-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.social-account-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.social-account-email {
+  font-size: 13px;
+  color: var(--meok-sub);
+  overflow-wrap: anywhere;
+}
+
+/* 쓸 수 없는 닉네임 */
+.field input[aria-invalid="true"] {
+  border: 2px solid var(--seal);
+  padding: 0 11px;
+}
+
+.field-status {
+  font-size: 13px;
+}
+
 .check {
   display: flex;
   align-items: center;

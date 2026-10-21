@@ -98,14 +98,24 @@
 
       <!-- 소셜 가입 마무리: 제공사에서 처음 돌아온 사람 (/login?social=signup) -->
       <form id="social-signup-form" class="login-form" aria-labelledby="social-signup-title" novalidate hidden>
-        <h2 id="social-signup-title" class="login-subtitle"><span id="social-provider-name"></span> 계정으로 가입하기</h2>
-        <p class="login-desc" id="social-signup-email"></p>
+        <!-- 어느 계정으로 들어왔는지: 제공사 로고 · 받은 이메일 -->
+        <div class="social-account">
+          <span class="social-account-mark" id="social-account-mark" aria-hidden="true"></span>
+          <span class="social-account-text">
+            <span class="social-account-title"><span id="social-provider-name"></span> 계정을 확인했어요</span>
+            <span class="social-account-email" id="social-account-email"></span>
+          </span>
+        </div>
+        <h2 id="social-signup-title" class="login-subtitle">마을에 처음 오셨네요</h2>
+        <p class="login-desc" id="social-signup-desc"></p>
         <div class="field">
           <label for="social-nickname">닉네임 <span class="hint">2~20자</span></label>
-          <input id="social-nickname" type="text" name="nickname" autocomplete="nickname" minlength="2" maxlength="20" required>
+          <input id="social-nickname" type="text" name="nickname" autocomplete="nickname" minlength="2" maxlength="20"
+            aria-describedby="social-nickname-status" required>
+          <span class="field-status" id="social-nickname-status" aria-live="polite"></span>
         </div>
-        <fieldset class="agrees">
-          <legend class="sr-only">약관 동의</legend>
+        <fieldset class="agrees agrees-box">
+          <legend>약관 동의</legend>
           <label class="check"><input type="checkbox" name="agreeTerms"> 이용약관에 동의해요 (필수)</label>
           <label class="check"><input type="checkbox" name="agreePrivacy"> 개인정보 수집 · 이용에 동의해요 (필수)</label>
           <label class="check"><input type="checkbox" name="over14"> 만 14세 이상이에요 (필수)</label>

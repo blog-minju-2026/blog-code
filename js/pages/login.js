@@ -177,23 +177,77 @@ const SOCIAL_MESSAGES = {
   suspended: '이용이 제한된 계정이에요.',
 };
 
-// 처음 온 사람: 제공사에서 받은 이름을 닉네임 칸에 미리 채우고 약관 동의를 받는다
-function showSocialSignup(signup) {
-  document.getElementById('social-provider-name').textContent = signup.provider_name;
-  document.getElementById('social-signup-email').textContent = signup.email
-    ? `${signup.email} 로 가입해요. 나중에 '비밀번호를 잊었나요?'에서 비밀번호를 정하면 이메일로도 로그인할 수 있어요.`
-    : `${signup.provider_name}에서 이메일을 받지 못해 이메일 없이 가입해요. 로그인은 ${signup.provider_name}로 해 주세요.`;
-  socialForm.elements.nickname.value = signup.nickname;
-  showTab('social');
-  socialForm.elements.nickname.focus();
+// 처음 온 사람: 어느 계정으로 왔는지 보이고, 제공사의 이름을 닉네임 칸에 미리 채워 약관 동의를 받는다
+const socialNickname = socialForm.elements.nickname;
+const socialNicknameStatus = document.getElementById('social-nickname-status');
+const NICKNAME_OK_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+let socialProviderName = '';
+let nicknameCheckTimer = null;
+
+function showNicknameStatus(ok, message) {
+  socialNicknameStatus.className = `field-status ${ok ? 'is-ok' : 'is-bad'}`;
+  socialNicknameStatus.innerHTML = ok ? `${NICKNAME_OK_ICON}${escapeHTML(message)}` : escapeHTML(message);
+  socialNickname.setAttribute('aria-invalid', String(!ok));
 }
 
-socialForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const { nickname, agreeTerms, agreePrivacy, over14 } = socialForm.elements;
-  const name = nickname.value.trim();
+function clearNicknameStatus() {
+  socialNicknameStatus.textContent = '';
+  socialNickname.removeAttribute('aria-invalid');
+}
 
-  if (name.length < 2 || name.length > 20) return showError(socialForm, '닉네임은 2~20자로 입력해 주세요.');
+// 입력이 멈추면 쓸 수 있는지 본다. 돌려주는 값: 쓸 수 있으면 true (확인하지 못했으면 null, 서버가 가입 때 다시 본다)
+async function checkSocialNickname({ prefilled = false } = {}) {
+  const nickname = socialNickname.value.trim();
+  if (nickname.length < 2 || nickname.length > 20) {
+    showNicknameStatus(false, '닉네임은 2~20자로 입력해 주세요.');
+    return false;
+  }
+  let result;
+  try {
+    result = await Auth.nicknameAvailable(nickname);
+  } catch (err) {
+    clearNicknameStatus();
+    return null;
+  }
+  if (nickname !== socialNickname.value.trim()) return null; // 그새 바뀌었으면 버린다
+  if (!result.available) {
+    showNicknameStatus(false, result.reason === 'TAKEN' ? '이미 쓰고 있는 닉네임이에요.' : '쓸 수 없는 닉네임이에요.');
+    return false;
+  }
+  showNicknameStatus(true, prefilled ? `쓸 수 있는 닉네임이에요 · ${socialProviderName}의 이름을 미리 채웠어요` : '쓸 수 있는 닉네임이에요');
+  return true;
+}
+
+socialNickname.addEventListener('input', () => {
+  clearNicknameStatus();
+  clearTimeout(nicknameCheckTimer);
+  nicknameCheckTimer = setTimeout(checkSocialNickname, 300);
+});
+
+function showSocialSignup(signup) {
+  socialProviderName = signup.provider_name;
+  const mark = document.getElementById('social-account-mark');
+  mark.className = `social-account-mark is-${signup.provider}`;
+  mark.innerHTML = SOCIAL_PROVIDER_MARKS[signup.provider] || '';
+  document.getElementById('social-provider-name').textContent = signup.provider_name;
+  document.getElementById('social-account-email').textContent = signup.email || '이메일은 받지 못했어요';
+  document.getElementById('social-signup-desc').textContent = signup.email
+    ? "닉네임을 정하고 약관에 동의하면 가입이 끝나요. 나중에 '비밀번호를 잊었나요?'에서 비밀번호를 정하면 이메일로도 로그인할 수 있어요."
+    : `이메일 없이 가입해요. 비밀번호 재설정 메일은 받을 수 없으니 로그인은 ${signup.provider_name}로 해 주세요.`;
+  socialNickname.value = signup.nickname;
+  showTab('social');
+  socialNickname.focus();
+  if (signup.nickname) checkSocialNickname({ prefilled: true });
+}
+
+socialForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { agreeTerms, agreePrivacy, over14 } = socialForm.elements;
+  const name = socialNickname.value.trim();
+  showError(socialForm, '');
+
+  clearTimeout(nicknameCheckTimer);
+  if (await checkSocialNickname() === false) return socialNickname.focus();
   if (!agreedToAll(socialForm)) return showError(socialForm, '필수 항목에 모두 동의해 주세요.');
 
   submitWith(socialForm, async () => {
@@ -207,6 +261,12 @@ socialForm.addEventListener('submit', (e) => {
     if (result.code === 'SOCIAL_SIGNUP_EXPIRED') {
       showTab('login');
       showError(loginForm, result.message);
+    }
+    // 그새 누가 이 닉네임을 가져갔으면 닉네임 칸 아래에 알린다
+    if (result.fields && result.fields.nickname) {
+      showNicknameStatus(false, result.fields.nickname);
+      socialNickname.focus();
+      return { ...result, message: '' };
     }
     return result;
   }, (result) => { location.href = safeNext(result.next); });
