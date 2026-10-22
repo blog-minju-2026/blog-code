@@ -166,11 +166,7 @@ document.getElementById('rows').addEventListener('click', async (e) => {
   if (!ok) return;
   try {
     await Store.deletePost(address, Number(deleteButton.dataset.delete));
-    if (draftMode) {
-    document.querySelector('.manage-row-head').innerHTML = '<span>임시저장한 기록</span><span>마지막 저장</span><span class="num">관리</span>';
-    document.querySelector('.manage-row-head').classList.add('draft-row');
-  }
-  await Promise.all([loadCounts(), draftMode ? loadDrafts() : loadRows()]);
+    await Promise.all([loadCounts(), loadRows()]);
   } catch (err) {
     alert(err.firstMessage || err.message);
   }
@@ -190,8 +186,13 @@ async function main() {
     <a href="${Links.yard(blog.address)}">${escapeHTML(blog.name)}</a><span aria-hidden="true">›</span>
     <span aria-current="page">기록 관리</span>`;
   document.getElementById('tabs').innerHTML = manageTabsHTML('posts');
+  if (draftMode) {
+    const head = document.querySelector('.manage-row-head');
+    head.innerHTML = '<span>임시저장한 기록</span><span>마지막 저장</span><span class="num">관리</span>';
+    head.classList.add('draft-row');
+  }
 
-  await Promise.all([loadCounts(), loadRows()]);
+  await Promise.all([loadCounts(), draftMode ? loadDrafts() : loadRows()]);
   document.getElementById('gate').hidden = false;
   document.getElementById('house').hidden = false;
 }
