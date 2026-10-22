@@ -11,6 +11,31 @@
   gap: 40px;
 }
 
+/* 탈퇴하고 돌아왔을 때의 안내: 한 줄을 다 쓴다 */
+.left-notice {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--hanji-deep);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.left-notice-close {
+  flex-shrink: 0;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--meok-sub);
+}
+
 .village-main {
   flex: 999 1 560px;
   min-width: 0;

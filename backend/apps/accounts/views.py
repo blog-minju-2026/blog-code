@@ -46,12 +46,14 @@ from .serializers import (
     MeUpdateSerializer,
     NicknameField,
     PasswordResetConfirmSerializer,
+    LeaveSerializer,
     SignupSerializer,
     SocialSignupSerializer,
     check_new_password,
     me_payload,
 )
 from .social import pending_signup_payload, verified_email
+from .withdrawal import leave_summary, withdraw
 
 logger = logging.getLogger(__name__)
 # 같은 주소로 인증 메일을 다시 보낼 수 있는 간격
@@ -441,3 +443,40 @@ class MeUpdateView(APIView):
         except IntegrityError:
             raise APIError(409, "CONFLICT", "이미 쓰고 있는 닉네임이에요.", fields={"nickname": "이미 쓰고 있는 닉네임이에요."})
         return Response({"user": me_payload(user, request)})
+
+
+class LeaveView(EnforceCsrfMixin, APIView):
+    """GET · POST /api/me/leave — 탈퇴 (AUTH-06).
+
+    GET: 탈퇴 확인 창에 보일 것 (사라지는 것 · '떠난 사람'으로 남는 것의 수, 확인 방법)
+    POST: 비밀번호(없으면 닉네임)와 확인 체크를 받아 탈퇴하고 로그아웃한다. 무엇을 지우고 남기는지는 withdrawal.py
+    """
+
+    permission_classes = [IsMember]
+    throttle_scope = "login"
+
+    def get(self, request):
+        return Response(leave_summary(request.user))
+
+    def post(self, request):
+        user = request.user
+        serializer = LeaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        if user.role == User.Role.ADMIN:
+            raise APIError(403, "FORBIDDEN", "마을 관리인은 탈퇴할 수 없어요. 다른 관리인에게 역할을 넘긴 뒤 탈퇴해 주세요.")
+
+        if user.has_usable_password():
+            # 비밀번호를 여러 번 틀리면 로그인처럼 잠시 막는다 (이메일이 없으면 회원 번호로 센다)
+            lock_key = user.email or f"user-{user.pk}"
+            attempts.ensure_not_locked(lock_key)
+            if not user.check_password(data.get("password") or ""):
+                attempts.record_failure(lock_key)
+                raise APIError(400, "VALIDATION_ERROR", "비밀번호가 맞지 않아요.", fields={"password": "비밀번호가 맞지 않아요."})
+        elif (data.get("nickname") or "") != user.nickname:
+            raise APIError(400, "VALIDATION_ERROR", "닉네임이 맞지 않아요.", fields={"nickname": "닉네임이 맞지 않아요."})
+
+        withdraw(user)
+        logout(request)
+        return Response({"left": True})
