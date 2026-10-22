@@ -372,12 +372,55 @@ a.comment-name:hover {
   text-decoration: underline;
 }
 
-.comment-delete {
+/* 내 댓글: 수정 · 삭제 */
+.comment-tools {
   margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.comment-tool {
+  min-height: 32px;
+  padding: 0 4px;
   font-size: 13px;
-  color: var(--danger);
+  color: var(--dancheong-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.comment-delete {
+  color: var(--danger);
+}
+
+.comment-tools:empty {
+  display: none;
+}
+
+/* 댓글 고치기: 그 자리에서 글상자로 (방명록과 같게) */
+.comment-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-edit .textarea {
+  border: 2px solid var(--dancheong);
+}
+
+.comment-edit .form-error-line:empty {
+  display: none;
+}
+
+.comment-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-edit-count {
+  flex-grow: 1;
+  font-size: 13px;
+  color: var(--meok-sub);
 }
 
 .comment-hidden {

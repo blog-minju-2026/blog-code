@@ -363,6 +363,7 @@ async function renderHeaderNav(nav) {
         </div>
         <div class="hc-me-group">
           ${menuItem(Links.me(), '내 정보')}
+          ${menuItem(Links.neighbors(), '내 이웃')}
           ${user.blog_address ? menuItem(Links.settings(), '한채 관리') + menuItem(Links.yard(user.blog_address), '내 마당 보기') : ''}
         </div>
         <div class="hc-me-group">

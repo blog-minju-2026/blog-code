@@ -147,14 +147,33 @@ function renderNav(post) {
 }
 
 // ----- 댓글 -----
+// ----- 댓글: 목록 · 고치기 · 지우기 (CMT-01 · 02 · 03) -----
+// 고치는 중인 댓글은 그 자리에서 글상자로 바뀐다 (방명록과 같은 방식)
+let comments = [];
+let editingCommentId = null;
+
 function commentHTML(c) {
   const name = c.author.withdrawn ? '떠난 사람' : escapeHTML(c.author.nickname);
   const authorLink = c.author.blog_address
     ? `<a class="comment-name" href="${Links.yard(c.author.blog_address)}">${name}</a>`
     : `<span class="comment-name">${name}</span>`;
   const text = c.hidden ? '<em class="comment-hidden">관리자가 숨긴 댓글이에요.</em>' : escapeHTML(c.content);
-  const edited = c.edited_at ? ' · 고침' : '';
-  const remove = c.can_delete ? `<button type="button" class="comment-delete" data-delete="${c.id}">삭제</button>` : '';
+  const edited = c.edited_at ? ' · 수정됨' : '';
+  const editing = c.id === editingCommentId;
+  const editButton = c.can_edit && !editing ? `<button type="button" class="comment-tool" data-edit="${c.id}">수정</button>` : '';
+  const remove = c.can_delete && !editing ? `<button type="button" class="comment-tool comment-delete" data-delete="${c.id}">삭제</button>` : '';
+  const body = editing
+    ? `
+        <form class="comment-edit" data-edit-form novalidate>
+          <textarea class="textarea" rows="3" maxlength="1000" aria-label="댓글 고치기">${escapeHTML(c.content)}</textarea>
+          <p class="form-error-line" role="alert"></p>
+          <div class="comment-edit-actions">
+            <span class="comment-edit-count" aria-live="polite">${c.content.length} / 1000</span>
+            <button type="button" class="btn btn-secondary" data-cancel>취소</button>
+            <button type="submit" class="btn btn-primary">고치기</button>
+          </div>
+        </form>`
+    : `<p class="comment-text">${text}</p>`;
   return `
     <li class="comment">
       ${avatarHTML(c.author.profile_image_url, 'comment-avatar')}
@@ -162,20 +181,43 @@ function commentHTML(c) {
         <div class="comment-head">
           ${authorLink}
           <span class="comment-when">${formatDateTime(c.created_at)}${edited}</span>
-          ${remove}
+          <span class="comment-tools">${editButton}${remove}</span>
         </div>
-        <p class="comment-text">${text}</p>
+        ${body}
       </div>
     </li>`;
 }
 
+function renderComments() {
+  const list = document.getElementById('comment-list');
+  list.innerHTML = comments.map(commentHTML).join('');
+  const textarea = list.querySelector('[data-edit-form] textarea');
+  if (textarea) {
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  }
+}
+
 async function loadComments() {
   const { items, count } = await Store.getComments(address, no);
+  comments = items;
+  editingCommentId = null;
   document.getElementById('comments-title').textContent = `댓글 ${count}`;
-  document.getElementById('comment-list').innerHTML = items.map(commentHTML).join('');
+  renderComments();
 }
 
 document.getElementById('comment-list').addEventListener('click', async (e) => {
+  const editButton = e.target.closest('[data-edit]');
+  if (editButton) {
+    editingCommentId = Number(editButton.dataset.edit);
+    renderComments();
+    return;
+  }
+  if (e.target.closest('[data-cancel]')) {
+    editingCommentId = null;
+    renderComments();
+    return;
+  }
   const button = e.target.closest('[data-delete]');
   if (!button) return;
   const ok = await confirmDialog({ title: '이 댓글을 지울까요?', text: '지운 댓글은 되돌릴 수 없어요.', confirmLabel: '삭제', danger: true });
@@ -185,6 +227,34 @@ document.getElementById('comment-list').addEventListener('click', async (e) => {
     await loadComments();
   } catch (err) {
     alert(err.message);
+  }
+});
+
+document.getElementById('comment-list').addEventListener('input', (e) => {
+  const form = e.target.closest('[data-edit-form]');
+  if (form) form.querySelector('.comment-edit-count').textContent = `${e.target.value.length} / 1000`;
+});
+
+document.getElementById('comment-list').addEventListener('submit', async (e) => {
+  const form = e.target.closest('[data-edit-form]');
+  if (!form) return;
+  e.preventDefault();
+  const error = form.querySelector('.form-error-line');
+  const content = form.querySelector('textarea').value.trim();
+  if (!content) {
+    error.textContent = '댓글을 써 주세요.';
+    return;
+  }
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  try {
+    const updated = await Store.editComment(editingCommentId, content);
+    comments = comments.map((c) => (c.id === updated.id ? updated : c));
+    editingCommentId = null;
+    renderComments();
+  } catch (err) {
+    error.textContent = err.firstMessage || err.message;
+    submit.disabled = false;
   }
 });
 
