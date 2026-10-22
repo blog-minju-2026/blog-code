@@ -146,6 +146,14 @@ const Store = (function () {
 
   // ----- 내 정보 -----
   // data: { nickname?, profile_image_id? (null 이면 사진 지우기) } → { user }
+  // 한채 허물기 (주인만): 확인 창에 보일 수 → { name, address, post_count, draft_count, room_count, guestbook_count, subscriber_count }
+  const demolishSummary = (address) => Api.get(`${blogUrl(address)}/demolish`);
+  // 허물고 나면 내 정보의 blog_address 가 비므로 다시 묻는다
+  async function demolishBlog(address, typedAddress) {
+    await Api.post(`${blogUrl(address)}/demolish`, { address: typedAddress, agree: true });
+    await Auth.refresh().catch(() => null);
+  }
+
   // 탈퇴 확인 창에 보일 것: { can_leave, nickname, confirm_with: 'password'|'nickname', social_provider, blog, post_count,
   // subscriber_count, comment_count, guestbook_count }
   const leaveSummary = () => Api.get('/api/me/leave');
@@ -225,6 +233,8 @@ const Store = (function () {
     deleteGuestbook,
     uploadImage,
     updateMe,
+    demolishSummary,
+    demolishBlog,
     leaveSummary,
     leave,
     loginMethods,

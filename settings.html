@@ -76,13 +76,47 @@
           </div>
         </form>
 
-        <section class="later-box" aria-labelledby="demolish-title">
+        <section class="card account-box" aria-labelledby="demolish-title">
           <div>
-            <h2 id="demolish-title">한채 허물기 <small>2차</small></h2>
-            <span>한채를 삭제하면 기록 · 댓글 · 방명록이 모두 사라지고, 주소는 다시 쓸 수 없어요.</span>
+            <h2 id="demolish-title">한채 허물기</h2>
+            <span>한채를 허물면 기록 · 방 · 받은 방명록 · 이웃이 모두 사라지고, 주소는 다시 쓸 수 없어요. 계정은 그대로예요.</span>
           </div>
-          <button type="button" class="btn btn-danger-outline" disabled>한채 삭제</button>
+          <button type="button" class="btn btn-danger-outline" id="demolish-button">한채 허물기</button>
         </section>
+
+        <!-- 한채 허물기 확인 창: 내용은 settings.js 가 GET /api/blogs/{주소}/demolish 로 채운다 -->
+        <dialog class="hc-dialog leave-dialog" id="demolish-dialog" aria-labelledby="demolish-dialog-title">
+          <form id="demolish-form" method="dialog" novalidate>
+            <h2 id="demolish-dialog-title"></h2>
+            <p>한채만 허물고 계정은 그대로예요. 허문 한채는 되돌릴 수 없어요.</p>
+            <div class="leave-lists">
+              <section class="leave-gone" aria-labelledby="demolish-gone-title">
+                <h3 id="demolish-gone-title">사라지는 것</h3>
+                <ul id="demolish-gone"></ul>
+              </section>
+              <section class="leave-stay" aria-labelledby="demolish-stay-title">
+                <h3 id="demolish-stay-title">그대로 남는 것</h3>
+                <ul>
+                  <li>내 계정 · 로그인 방법</li>
+                  <li>다른 한채에 남긴 댓글 · 방명록</li>
+                  <li>내가 맺은 이웃 · 누른 공감</li>
+                </ul>
+              </section>
+            </div>
+            <p id="demolish-address-note"></p>
+            <div class="field-group">
+              <label for="demolish-address" id="demolish-address-label"></label>
+              <input class="input" id="demolish-address" name="address" type="text" autocomplete="off" aria-describedby="demolish-address-error">
+              <span class="field-status is-bad" id="demolish-address-error" role="alert"></span>
+            </div>
+            <label class="leave-agree"><input type="checkbox" name="agree"> 위 내용을 확인했고, 한채를 허물게요</label>
+            <p class="form-error-line" id="demolish-error" role="alert"></p>
+            <div class="hc-dialog-actions">
+              <button type="button" class="btn btn-secondary" id="demolish-cancel">취소</button>
+              <button type="submit" class="btn btn-danger" id="demolish-submit">한채 허물기</button>
+            </div>
+          </form>
+        </dialog>
       </main>
 
       <aside class="house-side settings-side" aria-labelledby="preview-title">

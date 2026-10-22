@@ -184,14 +184,21 @@ async function renderRankings() {
     : '<p class="empty">아직 북적이는 한채가 없어요. 매 정각에 다시 세요.</p>';
 }
 
-// 탈퇴하고 돌아왔으면 한 번 알린다. 새로고침해도 다시 뜨지 않게 주소에서 ?left=1 을 뺀다
+// 탈퇴 · 한채 허물기 뒤 돌아왔으면 한 번 알린다. 새로고침해도 다시 뜨지 않게 주소에서 뺀다
+const RETURN_NOTICES = {
+  left: '탈퇴했어요. 그동안 한채에서 지내 주셔서 고마워요. 내 정보와 한채는 모두 지웠어요.',
+  demolished: '한채를 허물었어요. 계정은 그대로이고, 새 한채는 언제든 다른 주소로 지을 수 있어요.',
+};
+
 function showLeftNotice() {
   const params = new URLSearchParams(location.search);
-  if (params.get('left') !== '1') return;
+  const key = Object.keys(RETURN_NOTICES).find((k) => params.get(k) === '1');
+  if (!key) return;
   const notice = document.getElementById('left-notice');
+  document.getElementById('left-notice-text').textContent = RETURN_NOTICES[key];
   notice.hidden = false;
   document.getElementById('left-notice-close').addEventListener('click', () => { notice.hidden = true; });
-  params.delete('left');
+  params.delete(key);
   history.replaceState(null, '', location.pathname + (params.toString() ? `?${params}` : '') + location.hash);
 }
 
