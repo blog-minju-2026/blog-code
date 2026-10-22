@@ -77,7 +77,7 @@ class Tag(models.Model):
 
 
 class Image(models.Model):
-    """본문 이미지 (ERD images, REQ-004). 24시간 동안 어느 글에도 연결되지 않으면 정리 작업이 지운다."""
+    """본문 이미지 (ERD images, REQ-004). 하루가 지나도 어디에도 쓰이지 않으면 정리 작업이 지운다 (posts/cleanup.py)."""
 
     uploader = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="images", verbose_name="올린 회원"

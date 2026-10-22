@@ -11,11 +11,11 @@
 
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
-from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 
 from apps.blogs.models import Blog
+from apps.common.storage import delete_files
 from apps.community.models import Comment, GuestbookEntry, PostLike, Subscription
 from apps.posts.models import Category, Image, Post, Tag
 
@@ -95,12 +95,4 @@ def withdraw(user):
         user.save()
 
         # 파일은 DB 가 확정된 뒤에 지운다 (되돌려지면 파일은 남아 있어야 한다)
-        transaction.on_commit(lambda: _delete_files(files))
-
-
-def _delete_files(names):
-    for name in names:
-        try:
-            default_storage.delete(name)
-        except OSError:
-            pass
+        transaction.on_commit(lambda: delete_files(files))

@@ -24,7 +24,7 @@ async function loadFeed() {
   feedCursor = next;
   if (next) {
     box.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-secondary list-more" id="feed-more">더 불러오기</button>');
-    document.getElementById('feed-more').addEventListener('click', loadFeed);
+    bindLoadMore(document.getElementById('feed-more'), loadFeed);
   }
 }
 
@@ -65,7 +65,7 @@ async function loadNeighbors() {
   list.insertAdjacentHTML('beforeend', fresh.map(neighborHTML).join(''));
   if (active + fresh.length < result.total) {
     list.insertAdjacentHTML('beforeend', '<button type="button" class="text-link neighbor-more" id="neighbor-more">더 보기</button>');
-    document.getElementById('neighbor-more').addEventListener('click', loadNeighbors);
+    bindLoadMore(document.getElementById('neighbor-more'), loadNeighbors);
   }
   paintTotal();
 }

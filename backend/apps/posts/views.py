@@ -94,7 +94,7 @@ class BlogPostsView(APIView):
             category = params["category"]
             if category == "none":
                 qs = qs.filter(category__isnull=True)  # 마루
-            elif category.isdigit():
+            elif category.isascii() and category.isdigit() and len(category) <= 18:  # '²' 같은 글자 · 너무 큰 수는 없는 방
                 qs = qs.filter(category_id=int(category))
             else:
                 qs = qs.none()

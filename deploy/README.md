@@ -112,3 +112,19 @@ docker exec -it hanchae-backend-1 python manage.py createsuperuser
 - **이미지 아키텍처**: Actions 는 `linux/amd64` 이미지를 만든다. 서버가 ARM 이면 `deploy.yml` 의 빌드에 `--platform` 을 맞춰야 한다.
 - **한채 서브도메인**(`minju.<도메인>`)은 와일드카드 DNS 와 인증서가 있어야 한다. 안 되면 기능명세서 선택 7.3 을 경로 방식으로 바꾼다.
 - **Crowfoot DB 정렬 규칙**: 발급된 스키마의 기본 정렬 규칙이 `utf8mb4_0900_as_ci` 가 아닐 수 있다. 첫 배포 뒤 확인하고, 다르면 태그 대소문자 처리(TAG-01)를 다시 확인한다.
+
+## 정기 정리 (하루 한 번)
+
+`.github/workflows/maintenance.yml` 이 매일 새벽 4시(한국 시간)에 배포와 같은 SSH Secret 으로 서버에 접속해
+`docker exec hanchae-backend-1 python manage.py run_maintenance` 를 부른다. 학교 서버에 cron 을 두지 않아도 된다.
+
+| 지우는 것 | 기준 |
+| --- | --- |
+| 쓰이지 않는 사진 (행 · 원본 · 목록용 파일) | 올린 지 하루가 지나도 기록 본문 · 대표 사진 · 프로필 · 한채 사진 어디에도 쓰이지 않음 |
+| 인증 안 마친 가입 | 인증 링크까지 만료됨 (`delete_expired_signups`) |
+| 끝난 로그인 세션 | Django `clearsessions` |
+| 조회 기록 | 30일보다 오래됨 (순위는 최근 24시간만 본다. 기록의 조회 수는 그대로) |
+
+손으로 돌리려면 Actions → **maintenance** → Run workflow. `dry_run` 을 켜면 지우지 않고 수만 보여 준다.
+서버에서 직접: `docker exec hanchae-backend-1 python manage.py run_maintenance --dry-run`
+

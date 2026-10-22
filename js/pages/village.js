@@ -63,13 +63,24 @@ function alleyCardHTML(post) {
     </a>`;
 }
 
+let topicRequest = 0;
+
 async function selectTopic(button) {
   topicList.querySelectorAll('button').forEach((b) => {
     b.setAttribute('aria-pressed', String(b === button));
   });
   // '이 골목 더 보기'는 고른 골목의 화면으로
   document.getElementById('alley-more').href = Links.topic(button.dataset.slug);
-  const { items: posts } = await Store.topicPosts(button.dataset.slug, { limit: 6 });
+  // 골목을 빨리 바꿔 누르면 늦게 온 앞 골목의 결과가 덮어쓰지 않게, 마지막으로 누른 것만 그린다
+  const request = ++topicRequest;
+  let posts;
+  try {
+    ({ items: posts } = await Store.topicPosts(button.dataset.slug, { limit: 6 }));
+  } catch (err) {
+    if (request === topicRequest) alleyPosts.innerHTML = '<p class="empty">기록을 불러오지 못했어요. 골목을 다시 눌러 주세요.</p>';
+    return;
+  }
+  if (request !== topicRequest) return;
   alleyPosts.innerHTML = posts.length
     ? posts.map(alleyCardHTML).join('')
     : `<p class="empty">${escapeHTML(button.textContent)} 골목에는 아직 기록이 없어요.</p>`;
@@ -132,7 +143,7 @@ async function loadFresh() {
   freshCursor = next;
   if (next) {
     box.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-secondary fresh-more" id="fresh-more">새 기록 더 불러오기</button>');
-    document.getElementById('fresh-more').addEventListener('click', loadFresh);
+    bindLoadMore(document.getElementById('fresh-more'), loadFresh);
   }
 }
 
@@ -198,10 +209,15 @@ async function main() {
     build.href = Links.yard(myBlog.address);
   }
 
+  // 한 곳을 불러오지 못해도 첫 화면 전체를 오류 화면으로 바꾸지 않고 그곳에만 알린다
   await Promise.all([
     loadTopics(),
-    user ? renderNeighborPosts() : null,
-    loadFresh(),
+    user ? renderNeighborPosts().catch(() => {
+      document.getElementById('neighbor-posts').innerHTML = '<p class="empty">이웃 소식을 불러오지 못했어요.</p>';
+    }) : null,
+    loadFresh().catch(() => {
+      document.getElementById('fresh-posts').innerHTML = '<p class="empty">새 기록을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>';
+    }),
     renderRankings().catch(() => {
       document.getElementById('rank-list').innerHTML = '<li class="empty">순위를 불러오지 못했어요.</li>';
     }),

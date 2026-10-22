@@ -251,17 +251,34 @@ function showSocialSignup(signup) {
   if (signup.nickname) checkSocialNickname({ prefilled: true });
 }
 
+// 닉네임 확인을 기다리는 동안 한 번 더 눌러도 두 번 보내지 않는다 (두 번째는 '처음부터 다시'가 된다)
+let finishingSignup = false;
 socialForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (finishingSignup) return;
+  finishingSignup = true;
+  const done = await finishSocialSignupForm().catch(() => false);
+  if (!done) finishingSignup = false;
+});
+
+// 가입을 마치고 넘어가면 true
+async function finishSocialSignupForm() {
   const { agreeTerms, agreePrivacy, over14 } = socialForm.elements;
   const name = socialNickname.value.trim();
   showError(socialForm, '');
 
   clearTimeout(nicknameCheckTimer);
-  if (await checkSocialNickname() === false) return socialNickname.focus();
-  if (!agreedToAll(socialForm)) return showError(socialForm, '필수 항목에 모두 동의해 주세요.');
+  if (await checkSocialNickname() === false) {
+    socialNickname.focus();
+    return false;
+  }
+  if (!agreedToAll(socialForm)) {
+    showError(socialForm, '필수 항목에 모두 동의해 주세요.');
+    return false;
+  }
 
-  submitWith(socialForm, async () => {
+  let finished = false;
+  await submitWith(socialForm, async () => {
     const result = await Auth.finishSocialSignup({
       nickname: name,
       agreeTerms: agreeTerms.checked,
@@ -280,8 +297,12 @@ socialForm.addEventListener('submit', async (e) => {
       return { ...result, message: '' };
     }
     return result;
-  }, (result) => { location.href = safeNext(result.next); });
-});
+  }, (result) => {
+    finished = true;
+    location.href = safeNext(result.next);
+  });
+  return finished;
+}
 
 // 켜진 제공사의 버튼을 그리고, 제공사에서 막 돌아왔으면 결과를 알린다
 async function setUpSocialLogin() {

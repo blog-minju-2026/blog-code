@@ -58,8 +58,17 @@ nameInput.addEventListener('input', renderPreview);
 introInput.addEventListener('input', renderPreview);
 
 // ----- 짓기 -----
+// 주소 확인을 기다리는 동안 한 번 더 눌러도 두 번 보내지 않는다. 지으면 마당으로 넘어가므로 막아 둔 채 둔다
+let building = false;
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (building) return;
+  building = true;
+  building = await build().catch(() => false);
+});
+
+// 지었으면 true
+async function build() {
   errorBox.textContent = '';
 
   clearTimeout(checkTimer);
@@ -68,12 +77,12 @@ form.addEventListener('submit', async (e) => {
   if (!addressOk) {
     errorBox.textContent = addressInput.value ? '한채 주소를 다시 확인해 주세요.' : '한채 주소를 입력해 주세요.';
     addressInput.focus();
-    return;
+    return false;
   }
   if (!name || name.length > 40) {
     errorBox.textContent = '한채 이름을 1~40자로 입력해 주세요.';
     nameInput.focus();
-    return;
+    return false;
   }
 
   const button = document.getElementById('build-submit');
@@ -85,6 +94,7 @@ form.addEventListener('submit', async (e) => {
       description: introInput.value.trim(),
     });
     location.href = Links.yard(blog.address);
+    return true;
   } catch (err) {
     // 칸별 오류(fields)가 오면 그 칸의 문장을 먼저 보여 준다
     errorBox.textContent = err.firstMessage || err.message;
@@ -94,8 +104,9 @@ form.addEventListener('submit', async (e) => {
       addressInput.focus();
     }
     button.disabled = false;
+    return false;
   }
-});
+}
 
 async function main() {
   const user = await Auth.currentUser();
