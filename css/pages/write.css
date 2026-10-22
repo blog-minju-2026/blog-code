@@ -32,11 +32,27 @@
 }
 
 .draft-button {
-  border: 1px dashed var(--line-strong);
-  color: var(--meok-sub);
   font-size: 14px;
   padding: 0 16px;
-  cursor: default;
+}
+
+/* 임시저장했다는 표시: 헤더의 임시저장 버튼 왼쪽 */
+.draft-status {
+  font-size: 13px;
+  color: var(--dancheong-ink);
+}
+
+.draft-status.is-bad {
+  color: var(--seal);
+}
+
+/* 이어 쓰는 임시저장 기록 안내 */
+.draft-notice {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--hanji-deep);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .publish-button {

@@ -2,6 +2,7 @@
  * 기록 관리 (SCR-15) /manage-posts
  * manage-posts                       모든 기록 (나만 보기 포함)
  * manage-posts?visibility=PRIVATE     공개 범위로 거르기 (PUBLIC · SUBSCRIBERS · PRIVATE)
+ * manage-posts?status=draft          임시저장한 기록 (이어 쓰기 · 지우기)
  * 목록에서 공개 범위를 바로 바꾸고, 수정 · 삭제한다.
  */
 const params = new URLSearchParams(location.search);
@@ -11,19 +12,58 @@ const VISIBILITIES = [
   { value: 'PRIVATE', label: '나만 보기' },
 ];
 const visibility = VISIBILITIES.some((v) => v.value === params.get('visibility')) ? params.get('visibility') : '';
+const draftMode = params.get('status') === 'draft';
 const page = Number(params.get('page')) || 1;
 const FILTERS = [{ value: '', label: '전체' }, ...VISIBILITIES];
 let address = '';
 
 // 전체 · 공개 범위마다 개수 (주인은 목록에 이웃 공개 · 나만 보기도 섞여 온다)
 async function loadCounts() {
-  const results = await Promise.all(FILTERS.map((f) => Store.listPosts(address, { visibility: f.value, size: 1 })));
+  const [drafts, ...results] = await Promise.all([
+    Store.listDrafts(address, { size: 1 }),
+    ...FILTERS.map((f) => Store.listPosts(address, { visibility: f.value, size: 1 })),
+  ]);
   const counts = Object.fromEntries(FILTERS.map((f, i) => [f.value, results[i].total]));
   document.getElementById('counts').innerHTML = `기록 <strong>${counts['']}</strong> · `
-    + VISIBILITIES.map((v) => `${v.label} <strong>${counts[v.value]}</strong>`).join(' · ');
+    + VISIBILITIES.map((v) => `${v.label} <strong>${counts[v.value]}</strong>`).join(' · ')
+    + ` · 임시저장 <strong>${drafts.total}</strong>`;
   document.getElementById('filters').innerHTML = FILTERS
-    .map((f) => `<a href="${Links.managePosts({ visibility: f.value })}"${f.value === visibility ? ' aria-current="page"' : ''}>${f.label} ${counts[f.value]}</a>`)
-    .join('');
+    .map((f) => `<a href="${Links.managePosts({ visibility: f.value })}"${!draftMode && f.value === visibility ? ' aria-current="page"' : ''}>${f.label} ${counts[f.value]}</a>`)
+    .join('')
+    + `<a href="${Links.managePosts({ status: 'draft' })}"${draftMode ? ' aria-current="page"' : ''}>임시저장 ${drafts.total}</a>`;
+}
+
+// ----- 임시저장 목록 -----
+function draftRowHTML(d) {
+  const title = d.title ? escapeHTML(d.title) : '<span class="draft-untitled">제목 없음</span>';
+  const parts = [escapeHTML(roomName(d.category)), d.image_count ? `사진 ${d.image_count}장` : '사진 없음', `본문 ${d.content_length}자`];
+  return `
+    <div class="manage-row draft-row" data-draft="${d.id}">
+      <div class="manage-post-text">
+        <a class="manage-post-title" href="${Links.writeDraft(d.id)}">${title}</a>
+        <span class="manage-post-meta">${parts.join(' · ')}</span>
+      </div>
+      <span class="manage-date">${formatDateTime(d.updated_at)}</span>
+      <span class="manage-tools">
+        <a class="text-link" href="${Links.writeDraft(d.id)}">이어 쓰기</a>
+        <button type="button" class="text-link delete" data-delete-draft="${d.id}" data-title="${escapeHTML(d.title || '제목 없음')}">삭제</button>
+      </span>
+    </div>`;
+}
+
+async function loadDrafts() {
+  const result = await Store.listDrafts(address, { page });
+  document.getElementById('rows').innerHTML = result.items.length
+    ? result.items.map(draftRowHTML).join('')
+    : `
+      <div class="manage-empty">
+        <strong>임시저장한 기록이 없어요</strong>
+        <span>글쓰기에서 '임시저장'을 누르면 발행하지 않고 여기에 남겨 둬요. 나만 볼 수 있어요.</span>
+        <a class="btn btn-secondary" href="${Links.write()}">새 기록 쓰기</a>
+      </div>`;
+  const pager = document.getElementById('pager');
+  pager.hidden = result.total_pages <= 1;
+  if (!pager.hidden) pager.innerHTML = pagerHTML(result, (p) => Links.managePosts({ status: 'draft', page: p }));
 }
 
 function rowHTML(p) {
@@ -97,6 +137,24 @@ document.getElementById('rows').addEventListener('click', async (e) => {
     return;
   }
 
+  const draftDelete = e.target.closest('[data-delete-draft]');
+  if (draftDelete) {
+    const ok = await confirmDialog({
+      title: '이 임시저장을 지울까요?',
+      text: `‘${draftDelete.dataset.title}’을(를) 지우면 되돌릴 수 없어요.`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await Store.deleteDraft(address, Number(draftDelete.dataset.deleteDraft));
+      await Promise.all([loadCounts(), loadDrafts()]);
+    } catch (err) {
+      alert(err.firstMessage || err.message);
+    }
+    return;
+  }
+
   const deleteButton = e.target.closest('[data-delete]');
   if (!deleteButton) return;
   const ok = await confirmDialog({
@@ -128,8 +186,13 @@ async function main() {
     <a href="${Links.yard(blog.address)}">${escapeHTML(blog.name)}</a><span aria-hidden="true">›</span>
     <span aria-current="page">기록 관리</span>`;
   document.getElementById('tabs').innerHTML = manageTabsHTML('posts');
+  if (draftMode) {
+    const head = document.querySelector('.manage-row-head');
+    head.innerHTML = '<span>임시저장한 기록</span><span>마지막 저장</span><span class="num">관리</span>';
+    head.classList.add('draft-row');
+  }
 
-  await Promise.all([loadCounts(), loadRows()]);
+  await Promise.all([loadCounts(), draftMode ? loadDrafts() : loadRows()]);
   document.getElementById('gate').hidden = false;
   document.getElementById('house').hidden = false;
 }

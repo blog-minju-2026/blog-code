@@ -234,6 +234,7 @@ REST_FRAMEWORK = {
         "auth_mail": "20/hour",  # 인증 메일 다시 보내기 · 비밀번호 재설정 메일
         "password_reset": "30/hour",  # 새 비밀번호 정하기
         "post_publish": "30/hour",
+        "draft": "240/hour",  # 임시저장 만들기 · 고치기 · 지우기
         "image_upload": "120/hour",
         "comment": "10/min",
         "post_view": "300/hour",  # 기록 조회 수 세기 (부풀리기 막기. 넘으면 429 로 세지 않는다)

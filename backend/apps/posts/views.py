@@ -23,6 +23,7 @@ from .images import image_payload, save_upload
 from .models import Category, Post, PostTag, PostView, Tag, Topic
 from .serializers import (
     CategoryCreateSerializer,
+    DraftWriteSerializer,
     PostWriteSerializer,
     cursor_page,
     hidden_notice,
@@ -35,6 +36,8 @@ from .serializers import (
 )
 
 VIEW_DEDUP_WINDOW = timedelta(minutes=30)
+# 한채마다 임시저장은 이만큼까지 (쌓아 두기만 하는 것을 막는다)
+MAX_DRAFTS = 100
 VISITOR_COOKIE = "hc_vid"
 
 
@@ -164,13 +167,8 @@ class PostDetailView(APIView):
             }
         )
         if is_owner:
-            # 고치기 화면이 대표 이미지를 고를 때 쓴다 (명세서 밖, 주인에게만)
-            data["cover_image_id"] = post.cover_image_id
             data["hidden"] = hidden_notice(post)
-            images = [pi.image for pi in post.post_images.select_related("image")]
-            if post.cover_image and post.cover_image not in images:
-                images.append(post.cover_image)  # 본문과 따로 올린 대표 이미지
-            data["images"] = [image_payload(img, request) for img in images]
+            data.update(editor_fields(post, request))
         return Response(data)
 
     def patch(self, request, address, no):
@@ -191,6 +189,115 @@ class PostDetailView(APIView):
         if not deleted:
             raise APIError(404, "NOT_FOUND", "찾는 기록이 없어요.")
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def editor_fields(post, request):
+    """고치기 · 이어 쓰기 화면이 대표 이미지를 고를 때 쓴다 (명세서 밖, 주인에게만)."""
+    images = [pi.image for pi in post.post_images.select_related("image")]
+    if post.cover_image and post.cover_image not in images:
+        images.append(post.cover_image)  # 본문과 따로 올린 대표 이미지
+    return {"cover_image_id": post.cover_image_id, "images": [image_payload(img, request) for img in images]}
+
+
+# ----- 임시저장 (POST-11): 주인만. 번호 · 발행일 없이 두었다가 이어 쓰고 발행한다 -----
+def draft_summary(draft):
+    return {
+        "id": draft.pk,
+        "title": draft.title,
+        "excerpt": draft.excerpt,
+        "category": {"id": draft.category_id, "name": draft.category.name} if draft.category else None,
+        "image_count": draft.post_images.count(),
+        "content_length": len(draft.content_text),
+        "updated_at": draft.updated_at,
+    }
+
+
+def find_draft(blog, draft_id):
+    draft = Post.objects.filter(blog=blog, pk=draft_id, status=Post.Status.DRAFT).first()
+    if draft is None:
+        raise APIError(404, "NOT_FOUND", "찾는 임시저장 기록이 없어요.")
+    return draft
+
+
+class DraftsView(APIView):
+    """GET · POST /api/blogs/{address}/drafts — 임시저장 목록(최근 저장 순) · 새로 임시저장."""
+
+    throttle_scope = "draft"
+
+    def get(self, request, address):
+        blog = owned_blog(address, request.user)
+        drafts = (
+            Post.objects.filter(blog=blog, status=Post.Status.DRAFT)
+            .select_related("category")
+            .order_by("-updated_at", "-id")
+        )
+        return Response(paginate(drafts, request, draft_summary))
+
+    def post(self, request, address):
+        blog = owned_blog(address, request.user)
+        if Post.objects.filter(blog=blog, status=Post.Status.DRAFT).count() >= MAX_DRAFTS:
+            raise APIError(400, "VALIDATION_ERROR", f"임시저장은 {MAX_DRAFTS}개까지예요. 쓰지 않는 임시저장을 지워 주세요.")
+        serializer = DraftWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = {k: v for k, v in serializer.validated_data.items() if k != "client_token"}
+        with transaction.atomic():
+            draft = writing.save_draft(blog, data)
+        return Response({"id": draft.pk, "saved_at": draft.updated_at}, status=status.HTTP_201_CREATED)
+
+
+class DraftDetailView(APIView):
+    """GET · PATCH · DELETE /api/blogs/{address}/drafts/{id} — 이어 쓰기 · 다시 임시저장 · 지우기."""
+
+    throttle_scope = "draft"
+
+    def get(self, request, address, draft_id):
+        blog = owned_blog(address, request.user)
+        draft = find_draft(blog, draft_id)
+        data = {
+            "id": draft.pk,
+            "title": draft.title,
+            "content": draft.content,
+            "category": {"id": draft.category_id, "name": draft.category.name} if draft.category else None,
+            "topic": {"slug": draft.topic.slug, "name": draft.topic.name} if draft.topic else None,
+            "tags": tag_names(draft),
+            "visibility": draft.visibility,
+            "updated_at": draft.updated_at,
+        }
+        data.update(editor_fields(draft, request))
+        return Response(data)
+
+    def patch(self, request, address, draft_id):
+        blog = owned_blog(address, request.user)
+        draft = find_draft(blog, draft_id)
+        serializer = DraftWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = {k: v for k, v in serializer.validated_data.items() if k != "client_token"}
+        with transaction.atomic():
+            writing.save_draft(blog, data, draft)
+        return Response({"id": draft.pk, "saved_at": draft.updated_at})
+
+    def delete(self, request, address, draft_id):
+        blog = owned_blog(address, request.user)
+        find_draft(blog, draft_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DraftPublishView(APIView):
+    """POST /api/blogs/{address}/drafts/{id}/publish — 임시저장한 기록을 발행한다. 새 기록 발행과 같은 검사를 거친다."""
+
+    throttle_scope = "post_publish"
+
+    def post(self, request, address, draft_id):
+        blog = owned_blog(address, request.user)
+        serializer = PostWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = {k: v for k, v in serializer.validated_data.items() if k != "client_token"}
+        with transaction.atomic():
+            draft = Post.objects.select_for_update().filter(blog=blog, pk=draft_id, status=Post.Status.DRAFT).first()
+            if draft is None:
+                raise APIError(404, "NOT_FOUND", "찾는 임시저장 기록이 없어요. 이미 발행했을 수 있어요.")
+            post = writing.publish(blog, data, draft=draft)
+        return Response({"no": post.post_no, "url": post_url(post)}, status=status.HTTP_201_CREATED)
 
 
 class PostViewCountView(EnforceCsrfMixin, APIView):

@@ -18,6 +18,7 @@ const Links = {
   },
   post: (address, no) => `/post?address=${encodeURIComponent(address)}&no=${no}`,
   write: (no) => (no ? `/write?no=${no}` : '/write'),
+  writeDraft: (id) => `/write?draft=${id}`,
   me: () => '/me',
   admin: (tab, filter = {}) => {
     const params = new URLSearchParams(Object.entries({ tab, ...filter }).filter(([, v]) => v !== undefined && v !== null && v !== ''));

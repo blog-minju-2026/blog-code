@@ -103,6 +103,17 @@ const Store = (function () {
   const getPost = (address, no) => orNull(Api.get(postUrl(address, no)));
   const addView = (address, no) => Api.post(`${postUrl(address, no)}/views`);
 
+  // 임시저장 (주인만). data 는 savePost 와 같은 칸이고 제목 · 본문이 비어도 된다
+  // listDrafts → { items: [{ id, title, excerpt, category, image_count, content_length, updated_at }], total, … }
+  const listDrafts = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/drafts${query({ page, size })}`);
+  // getDraft → { id, title, content, category, topic, tags, visibility, cover_image_id, images, updated_at }
+  const getDraft = (address, id) => Api.get(`${blogUrl(address)}/drafts/${id}`);
+  // 새로 임시저장 · 다시 임시저장 → { id, saved_at }
+  const saveDraft = (address, data, id) => (id ? Api.patch(`${blogUrl(address)}/drafts/${id}`, data) : Api.post(`${blogUrl(address)}/drafts`, data));
+  const deleteDraft = (address, id) => Api.delete(`${blogUrl(address)}/drafts/${id}`);
+  // 임시저장한 기록을 발행 → { no, url }
+  const publishDraft = (address, id, data) => Api.post(`${blogUrl(address)}/drafts/${id}/publish`, data);
+
   // data: { title, content, category_id, topic_slug, tags, visibility, cover_image_id, client_token } → { no, url }
   async function savePost(address, data, no) {
     return no ? Api.patch(postUrl(address, no), data) : Api.post(`${blogUrl(address)}/posts`, data);
@@ -195,6 +206,11 @@ const Store = (function () {
     getPost,
     addView,
     savePost,
+    listDrafts,
+    getDraft,
+    saveDraft,
+    deleteDraft,
+    publishDraft,
     deletePost,
     setLike,
     getComments,

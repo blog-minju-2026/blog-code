@@ -2,6 +2,7 @@
  * 글쓰기 (SCR-14)
  * write        새 기록
  * write?no=3   내 한채 3번 기록 수정
+ * write?draft=7 임시저장한 기록 이어 쓰기 (임시저장 · 발행)
  * 로그인하지 않았으면 로그인으로, 한채가 없으면 한채 짓기로 보낸다.
  */
 const form = document.getElementById('write-form');
@@ -12,6 +13,8 @@ const tagInput = document.getElementById('tag-input');
 const thumbPicker = document.getElementById('thumb-picker');
 const errorBox = document.getElementById('form-error');
 const editNo = Number(new URLSearchParams(location.search).get('no')) || null;
+// 임시저장한 기록의 id. 새 기록을 처음 임시저장하면 여기에 들어오고 주소도 ?draft= 로 바뀐다
+let draftId = editNo ? null : Number(new URLSearchParams(location.search).get('draft')) || null;
 const MAX_TAGS = 10;
 // 발행을 연달아 눌러도 한 번만 (API 명세서 2.6)
 const clientToken = newClientToken();
@@ -184,6 +187,52 @@ form.addEventListener('keydown', (e) => {
   if (e.target === titleInput) editor.focus();
 });
 
+// 지금 쓰고 있는 내용 (발행 · 임시저장이 같은 칸을 보낸다)
+function collectData() {
+  if (tagInput.value.trim()) addTag(tagInput.value);
+  return {
+    title: titleInput.value.trim(),
+    content: editor.isEmpty() ? '' : editor.getHTML(),
+    category_id: roomSelect.value ? Number(roomSelect.value) : null,
+    topic_slug: topicSelect.value || null,
+    tags,
+    visibility: form.elements.visibility.value,
+    // 고르지 않았으면 null → 서버가 본문 첫 사진을 쓴다
+    cover_image_id: coverUrl ? (imageIds.get(coverUrl) ?? null) : null,
+  };
+}
+
+// ----- 임시저장 (POST-11): 제목 · 본문이 비어도 저장한다. 발행하기 전까지는 나만 본다 -----
+const draftStatus = document.getElementById('draft-status');
+
+function savedTime(iso) {
+  return new Date(iso).toLocaleTimeString('ko-KR', { ...KST, hour: 'numeric', minute: '2-digit' });
+}
+
+document.getElementById('draft-button').addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  showError('');
+  button.disabled = true;
+  draftStatus.className = 'draft-status';
+  draftStatus.textContent = '임시저장하는 중…';
+  try {
+    const saved = await Store.saveDraft(myAddress, collectData(), draftId);
+    if (!draftId) {
+      draftId = saved.id;
+      // 새로고침하거나 나갔다 와도 이 임시저장으로 돌아오게
+      history.replaceState(null, '', Links.writeDraft(draftId));
+      document.getElementById('write-mode').textContent = '임시저장한 기록 이어 쓰기';
+    }
+    isDirty = false;
+    draftStatus.textContent = `임시저장했어요 · ${savedTime(saved.saved_at)}`;
+  } catch (err) {
+    draftStatus.className = 'draft-status is-bad';
+    draftStatus.textContent = err.firstMessage || err.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   showError('');
@@ -199,24 +248,15 @@ form.addEventListener('submit', async (e) => {
     editor.focus();
     return;
   }
-  if (tagInput.value.trim()) addTag(tagInput.value);
-
-  const data = {
-    title,
-    content: editor.getHTML(),
-    category_id: roomSelect.value ? Number(roomSelect.value) : null,
-    topic_slug: topicSelect.value || null,
-    tags,
-    visibility: form.elements.visibility.value,
-    // 고르지 않았으면 null → 서버가 본문 첫 사진을 쓴다
-    cover_image_id: coverUrl ? (imageIds.get(coverUrl) ?? null) : null,
-  };
-  if (!editNo) data.client_token = clientToken;
+  const data = collectData();
+  if (!editNo && !draftId) data.client_token = clientToken;
 
   const button = document.getElementById('publish-button');
   button.disabled = true;
   try {
-    const saved = await Store.savePost(myAddress, data, editNo);
+    const saved = draftId
+      ? await Store.publishDraft(myAddress, draftId, data)
+      : await Store.savePost(myAddress, data, editNo);
     isDirty = false;
     location.href = Links.post(myAddress, saved.no);
   } catch (err) {
@@ -250,6 +290,35 @@ async function main() {
   document.getElementById('neighbor-hint').textContent = `내 한채의 이웃 ${myBlog.subscriber_count}명과 나만 볼 수 있어요. 골목 · 새 기록 · 검색에는 나오지 않아요.`;
 
   let post = null;
+  if (editNo) {
+    // 발행한 기록을 고칠 때는 임시저장을 쓰지 않는다
+    document.getElementById('draft-button').hidden = true;
+    draftStatus.hidden = true;
+  } else if (draftId) {
+    try {
+      post = await Store.getDraft(myAddress, draftId);
+    } catch (err) {
+      if (err.status !== 404) throw err;
+      alert('이어 쓸 임시저장 기록을 찾지 못했어요. 이미 발행했거나 지웠을 수 있어요. 새 기록 쓰기로 갈게요.');
+      location.replace(Links.write());
+      return;
+    }
+    document.title = '한채 · 임시저장 이어 쓰기';
+    document.getElementById('write-mode').textContent = '임시저장한 기록 이어 쓰기';
+    const notice = document.getElementById('draft-notice');
+    notice.textContent = `${formatDateTime(post.updated_at)}에 임시저장한 기록이에요. 발행하기 전까지는 나만 볼 수 있어요.`;
+    notice.hidden = false;
+    titleInput.value = post.title;
+    editor.setHTML(post.content);
+    tags = post.tags.slice();
+    form.elements.visibility.value = post.visibility;
+    post.images.forEach((img) => imageIds.set(img.url, img.id));
+    const cover = post.images.find((img) => img.id === post.cover_image_id);
+    if (cover) {
+      coverUrl = cover.url;
+      if (!editor.getImages().includes(cover.url)) uploadedCover = cover.url;
+    }
+  }
   if (editNo) {
     post = await Store.getPost(myAddress, editNo);
     if (!post || !post.is_owner) {

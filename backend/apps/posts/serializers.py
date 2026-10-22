@@ -52,6 +52,16 @@ class PostWriteSerializer(serializers.Serializer):
         return tags
 
 
+class DraftWriteSerializer(PostWriteSerializer):
+    """임시저장: 제목 · 본문이 비어 있어도 된다 (발행할 때 PostWriteSerializer 로 다시 검사한다)."""
+
+    title = serializers.CharField(
+        max_length=100, trim_whitespace=True, required=False, allow_blank=True,
+        error_messages={"max_length": "제목은 100자까지 쓸 수 있어요."},
+    )
+    content = serializers.CharField(trim_whitespace=False, required=False, allow_blank=True)
+
+
 class CategoryCreateSerializer(serializers.Serializer):
     name = serializers.CharField(
         max_length=20,
