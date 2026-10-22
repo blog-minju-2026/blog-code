@@ -300,6 +300,16 @@ a.link:hover,
   margin-left: auto;
 }
 
+.hc-footer-links a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hc-footer-links a:hover {
+  color: var(--paper);
+}
+
 /* ===== 카드 · 빈 상태 ===== */
 .card {
   background: var(--paper);

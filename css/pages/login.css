@@ -173,7 +173,24 @@
   font-weight: 500;
 }
 
-.agrees-box .check {
+.agrees-box /* 동의 칸 오른쪽의 '보기' (약관 · 방침을 새 탭으로) */
+.check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.check-view {
+  flex-shrink: 0;
+  min-height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.check {
   min-height: var(--touch-target);
 }
 
