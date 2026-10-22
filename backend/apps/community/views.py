@@ -12,7 +12,8 @@ from apps.common.errors import APIError
 from apps.common.permissions import IsMember
 from apps.blogs.serializers import blog_summary
 from apps.posts.serializers import cursor_page, paginate, post_summary, with_counts
-from apps.posts.views import visible_post_or_404
+from apps.posts.models import Post
+from apps.posts.views import owned_blog, visible_post_or_404
 
 from .models import Comment, GuestbookEntry, PostLike, Subscription
 
@@ -295,3 +296,45 @@ class MySubscriptionsView(APIView):
             return data
 
         return Response(paginate(subs, request, item))
+
+
+# ----- 한채 관리 › 댓글 · 방명록 (CMT-04): 주인이 내 한채에 남겨진 것을 모아 보고 지운다 -----
+def manage_item(payload, item):
+    """관리 목록 한 줄: 보통 모양에 관리인이 숨긴 사유를 더한다 (내용은 보통처럼 감춘다)."""
+    payload["hidden_reason"] = item.hidden_reason if item.hidden_at else None
+    return payload
+
+
+class ManageCommentsView(APIView):
+    """GET /api/blogs/{address}/manage/comments?page= — 주인: 내 기록에 달린 댓글, 새것부터 (숨긴 것도)."""
+
+    permission_classes = [IsMember]
+
+    def get(self, request, address):
+        blog = owned_blog(address, request.user)
+        comments = (
+            Comment.objects.filter(post__blog=blog, post__status=Post.Status.PUBLISHED)
+            .select_related("author", "post")
+            .order_by("-created_at", "-id")
+        )
+
+        def item(comment):
+            data = manage_item(comment_payload(comment, request, blog.owner_id), comment)
+            data["post"] = {"no": comment.post.post_no, "title": comment.post.title}
+            return data
+
+        return Response(paginate(comments, request, item))
+
+
+class ManageGuestbookView(APIView):
+    """GET /api/blogs/{address}/manage/guestbook?page= — 주인: 받은 방명록, 새것부터 (숨긴 것도)."""
+
+    permission_classes = [IsMember]
+
+    def get(self, request, address):
+        blog = owned_blog(address, request.user)
+        entries = GuestbookEntry.objects.filter(blog=blog).select_related("author").order_by("-created_at", "-id")
+        return Response(
+            paginate(entries, request, lambda e: manage_item(comment_payload(e, request, blog.owner_id), e))
+        )
+

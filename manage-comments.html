@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>한채 · 댓글 · 방명록 관리</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gugi&family=Noto+Serif+KR:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/hanchae.css">
+  <link rel="stylesheet" href="css/pages/manage-posts.css">
+  <link rel="stylesheet" href="css/pages/manage-comments.css">
+</head>
+<body>
+  <header class="hc-header">
+    <div class="hc-header-inner">
+      <a class="hc-logo" href="/">한채</a>
+      <form class="hc-search" id="village-search" role="search">
+        <label for="village-q" class="sr-only">마을에서 찾기</label>
+        <input id="village-q" name="q" type="search" maxlength="50" placeholder="마을에서 기록과 한채 찾기">
+        <button type="submit" aria-label="찾기">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        </button>
+      </form>
+      <a class="hc-release" href="/releases">릴리즈</a>
+      <nav class="hc-nav" id="header-nav" aria-label="내 메뉴"></nav>
+    </div>
+  </header>
+
+  <section class="gate" id="gate" aria-label="대문" hidden></section>
+
+  <div class="house" id="house" hidden>
+    <nav class="breadcrumb" id="breadcrumb" aria-label="현재 위치"></nav>
+    <nav class="tabs" id="tabs" aria-label="한채 관리 메뉴"></nav>
+
+    <main class="manage">
+      <div class="manage-head">
+        <div>
+          <h1>댓글 · 방명록</h1>
+          <span class="manage-counts">내 한채에 남겨진 댓글과 방명록을 모아 보고 지울 수 있어요.</span>
+        </div>
+      </div>
+
+      <nav class="filter-chips" id="kinds" aria-label="종류"></nav>
+
+      <div class="manage-table card">
+        <div class="manage-table-inner">
+          <div class="talk-row manage-row-head" aria-hidden="true">
+            <span>남긴 사람</span><span>내용</span><span id="where-head">기록</span><span>날짜</span><span class="num">관리</span>
+          </div>
+          <div id="rows" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <nav class="pager" id="pager" aria-label="페이지"></nav>
+    </main>
+  </div>
+
+  <footer class="hc-footer">
+    <div class="dancheong-band" aria-hidden="true"></div>
+    <div class="hc-footer-inner">
+      <span class="hc-footer-logo">한채</span>
+      <span class="hc-footer-sub">한 사람, 한 채, 그 안의 기록</span>
+    </div>
+  </footer>
+
+  <script src="js/content.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/pages/manage-comments.js"></script>
+</body>
+</html>

@@ -120,6 +120,10 @@ const Store = (function () {
   const getComments = (address, no) => Api.get(`${postUrl(address, no)}/comments`);
   const addComment = (address, no, content, clientToken) => Api.post(`${postUrl(address, no)}/comments`, { content, client_token: clientToken });
   const deleteComment = (id) => Api.delete(`/api/comments/${id}`);
+  // 한채 관리 › 댓글 · 방명록 (주인만): { items: [Comment + hidden_reason (+ post: { no, title })], page, total, total_pages }
+  const manageComments = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/manage/comments${query({ page, size })}`);
+  const manageGuestbook = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/manage/guestbook${query({ page, size })}`);
+
   // 내 댓글 고치기 → 고친 Comment
   const editComment = (id, content) => Api.patch(`/api/comments/${id}`, { content });
 
@@ -197,6 +201,8 @@ const Store = (function () {
     addComment,
     deleteComment,
     editComment,
+    manageComments,
+    manageGuestbook,
     getGuestbook,
     addGuestbook,
     editGuestbook,
