@@ -121,6 +121,7 @@ class CommentDetailView(APIView):
         # 볼 수 없는 기록의 댓글은 없는 것처럼
         if comment is None or not visible_posts(request.user).filter(pk=comment.post_id).exists():
             raise APIError(404, "NOT_FOUND", "찾는 댓글이 없어요.")
+        get_visible_blog_or_404(comment.post.blog.address, request.user)  # 이용 제한으로 닫힌 한채면 404
         return comment
 
     def patch(self, request, comment_id):

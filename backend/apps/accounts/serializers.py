@@ -11,7 +11,10 @@ def absolute_url(request, field_file):
 
 
 def alive_blog_address(user):
-    blog = user.blogs.filter(deleted_at__isnull=True).only("address").first()
+    """다른 사람이 갈 수 있는 한채 주소. 허물었거나 주인이 이용 제한 중이면 None (링크가 404 로 가지 않게)."""
+    from apps.common.access import visible_blogs
+
+    blog = visible_blogs(user.blogs.all()).only("address").first()
     return blog.address if blog else None
 
 

@@ -1,0 +1,36 @@
+# 한채 정리 (하루 한 번)
+# 서버의 1번 컨테이너 안에서 python manage.py run_maintenance 를 부른다.
+# 쓰이지 않는 사진 · 인증 안 마친 가입 · 끝난 세션 · 오래된 조회 기록을 지운다 (backend/apps/posts/management/commands/run_maintenance.py).
+# 학교 서버에는 cron 을 두지 않으므로 배포에 쓰는 SSH Secret 으로 GitHub 이 대신 부른다.
+# 손으로 부르려면 Actions → maintenance → Run workflow (dry_run 을 켜면 지우지 않고 수만 본다).
+name: maintenance
+
+on:
+  schedule:
+    - cron: "0 19 * * *" # 매일 새벽 4시 (한국 시간). GitHub 사정으로 조금 늦게 돌 수 있다
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "지우지 않고 수만 보기"
+        type: boolean
+        default: false
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 서버에서 정리하기
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        with:
+          host: ${{ secrets.SSH_ADDRESS }}
+          username: ${{ secrets.SSH_ID }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          envs: DRY_RUN
+          script: docker exec hanchae-backend-1 python manage.py run_maintenance $DRY_RUN

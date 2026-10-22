@@ -68,7 +68,7 @@ class CategoryCreateSerializer(serializers.Serializer):
 # ----- 목록 나누기 (API 명세서 2.5) -----
 def page_params(request):
     try:
-        page = max(1, int(request.query_params.get("page", 1)))
+        page = min(100_000, max(1, int(request.query_params.get("page", 1))))  # 터무니없이 큰 쪽 번호는 DB 가 받지 못한다
         size = min(50, max(1, int(request.query_params.get("size", 10))))
     except ValueError:
         raise APIError(400, "VALIDATION_ERROR", "입력한 내용을 확인해 주세요.", fields={"page": "숫자로 보내 주세요."})

@@ -6,7 +6,7 @@
 
 import html
 import re
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import nh3
 from django.conf import settings
@@ -38,7 +38,14 @@ def _media_path(url):
     if parsed.netloc and not validate_host(parsed.hostname or "", settings.ALLOWED_HOSTS):
         return None
     prefix = "/" + settings.MEDIA_URL.lstrip("/")
-    return parsed.path[len(prefix):] if parsed.path.startswith(prefix) else None
+    if not parsed.path.startswith(prefix):
+        return None
+    path = parsed.path[len(prefix):]
+    # /media/../api/... 처럼 MEDIA 밖을 가리키면 브라우저가 다른 주소로 읽는다 (%2e%2e 도 브라우저에는 .. 다)
+    decoded = unquote(path)
+    if not path or "\\" in decoded or any(part in ("", ".", "..") for part in decoded.split("/")):
+        return None
+    return path
 
 
 def media_url(path):
