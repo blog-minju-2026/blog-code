@@ -236,6 +236,7 @@ REST_FRAMEWORK = {
         "post_publish": "30/hour",
         "image_upload": "120/hour",
         "comment": "10/min",
+        "post_view": "300/hour",  # 기록 조회 수 세기 (부풀리기 막기. 넘으면 429 로 세지 않는다)
         "guestbook": "10/min",
     },
     # 손님의 IP 는 nginx 가 X-Forwarded-For 끝에 붙인 값을 쓴다 (앞쪽은 손님이 마음대로 적어 보낼 수 있다)
@@ -287,6 +288,9 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 if USE_HTTPS:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # 브라우저가 앞으로 이 사이트를 https 로만 열게 한다 (https 로 들어온 응답에만 붙는다).
+    # http → https 넘기기(SECURE_SSL_REDIRECT)는 켜지 않는다: 배포의 상태 확인이 http://127.0.0.1 로 묻는다
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
 
 LOGGING = {
     "version": 1,

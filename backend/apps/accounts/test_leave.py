@@ -68,6 +68,7 @@ class LeaveTests(APITestCase):
         self.assertEqual(
             self.client.get("/api/me/leave").json(),
             {
+                "can_leave": True,
                 "nickname": "민주",
                 "confirm_with": "password",
                 "social_provider": None,
@@ -152,6 +153,7 @@ class LeaveTests(APITestCase):
 
     def test_village_keeper_cannot_leave(self):
         User.objects.filter(pk=self.minju.pk).update(role=User.Role.ADMIN)
+        self.assertFalse(self.client.get("/api/me/leave").json()["can_leave"])  # 창을 열 때 바로 알린다
         res = self.leave(password=PASSWORD)
         self.assertEqual(res.status_code, 403)
         self.assertTrue(User.objects.get(pk=self.minju.pk).is_active)

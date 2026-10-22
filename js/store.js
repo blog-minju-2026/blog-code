@@ -129,7 +129,7 @@ const Store = (function () {
 
   // ----- 내 정보 -----
   // data: { nickname?, profile_image_id? (null 이면 사진 지우기) } → { user }
-  // 탈퇴 확인 창에 보일 것: { nickname, confirm_with: 'password'|'nickname', social_provider, blog, post_count,
+  // 탈퇴 확인 창에 보일 것: { can_leave, nickname, confirm_with: 'password'|'nickname', social_provider, blog, post_count,
   // subscriber_count, comment_count, guestbook_count }
   const leaveSummary = () => Api.get('/api/me/leave');
 
