@@ -51,6 +51,7 @@ function renderArticle(post, blog) {
   const meta = [formatLongDate(post.published_at), `조회 ${post.view_count}`];
   if (post.topic) meta.push(`골목 ${post.topic.name}`);
   if (post.visibility === 'PRIVATE') meta.push('나만 보기');
+  if (post.visibility === 'SUBSCRIBERS') meta.push('이웃 공개');
   document.getElementById('post-title').textContent = post.title;
   document.getElementById('post-meta').textContent = meta.join(' · ');
 

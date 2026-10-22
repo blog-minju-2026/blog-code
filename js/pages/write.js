@@ -247,6 +247,7 @@ async function main() {
   const myBlog = await Store.getBlog(myAddress);
   document.getElementById('back-link').href = Links.yard(myAddress);
   document.getElementById('blog-name').textContent = myBlog.name;
+  document.getElementById('neighbor-hint').textContent = `내 한채의 이웃 ${myBlog.subscriber_count}명과 나만 볼 수 있어요. 골목 · 새 기록 · 검색에는 나오지 않아요.`;
 
   let post = null;
   if (editNo) {

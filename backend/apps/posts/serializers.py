@@ -36,11 +36,6 @@ class PostWriteSerializer(serializers.Serializer):
     image_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
     client_token = serializers.CharField(max_length=36, required=False, allow_null=True)
 
-    def validate_visibility(self, value):
-        if value == "SUBSCRIBERS":
-            raise serializers.ValidationError("이웃 공개는 아직 준비 중이에요.")
-        return value
-
     def validate_tags(self, value):
         tags = []
         for raw in value:

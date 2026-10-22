@@ -308,6 +308,12 @@
   accent-color: var(--giwa);
 }
 
+/* 이웃 공개 설명: 라디오 글자 아래로 들여 쓴다 */
+.radio-hint {
+  margin: -2px 0 6px 28px;
+  line-height: 1.5;
+}
+
 .radio.is-disabled {
   color: var(--meok-sub);
 }

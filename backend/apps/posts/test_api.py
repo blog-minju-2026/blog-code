@@ -74,8 +74,9 @@ class PublishTests(PostApiTestBase):
         res = self.publish(tags=[f"t{i}" for i in range(11)])
         self.assertEqual(res.status_code, 400)
 
-    def test_neighbor_visibility_is_second_phase(self):
-        self.assertEqual(self.publish(visibility="SUBSCRIBERS").status_code, 400)
+    def test_neighbor_visibility_can_be_published(self):
+        self.assertEqual(self.publish(visibility="SUBSCRIBERS").status_code, 201)
+        self.assertEqual(Post.objects.get(post_no=1).visibility, "SUBSCRIBERS")
 
     def test_room_must_be_mine_and_topic_must_exist(self):
         other_blog = Blog.objects.create(owner=self.reader, address="seohyun", name="서현의 한채")
