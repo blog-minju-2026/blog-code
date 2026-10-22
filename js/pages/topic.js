@@ -24,7 +24,7 @@ async function loadMore() {
   cursor = next;
   if (next) {
     box.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-secondary list-more" id="topic-more">더 불러오기</button>');
-    document.getElementById('topic-more').addEventListener('click', loadMore);
+    bindLoadMore(document.getElementById('topic-more'), loadMore);
   }
 }
 

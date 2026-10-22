@@ -89,6 +89,24 @@ function renderSocialButtons(box, providers, next, { short = false, brand = fals
   return box.childElementCount > 0;
 }
 
+// ----- '더 불러오기' 단추 -----
+// 누르는 동안 막아 같은 쪽을 두 번 붙이지 않게 하고, 실패하면 다시 누를 수 있게 알린다.
+// load 가 성공하면 이 단추를 지우고 (다음 쪽이 있으면) 새 단추를 붙인다
+function bindLoadMore(button, load) {
+  const label = button.textContent;
+  button.addEventListener('click', async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    button.textContent = '불러오는 중…';
+    try {
+      await load();
+    } catch (err) {
+      button.disabled = false;
+      button.textContent = `불러오지 못했어요. 다시 누르기 (${label})`;
+    }
+  });
+}
+
 // ----- 글자 -----
 function escapeHTML(text) {
   return String(text ?? '').replace(/[&<>"']/g, (ch) => ({
