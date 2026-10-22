@@ -11,6 +11,10 @@ from apps.common.permissions import IsMember
 from apps.community.models import Subscription
 from apps.posts.images import get_own_image
 
+from apps.common.storage import delete_files
+from apps.posts.views import owned_blog
+
+from .demolish import demolish_blogs, demolish_summary
 from .models import Blog
 from .serializers import BlogCreateSerializer, BlogUpdateSerializer, blog_summary, check_address
 
@@ -81,3 +85,29 @@ class BlogDetailView(APIView):
             blog.profile_image = get_own_image(image_id, request.user).file.name if image_id is not None else None
         blog.save()
         return Response(blog_detail(blog, request))
+
+
+class DemolishView(APIView):
+    """GET · POST /api/blogs/{address}/demolish — 한채 허물기 (BLOG-04). 주인만, 계정은 그대로.
+
+    GET: 확인 창에 보일 수 (기록 · 임시저장 · 방 · 받은 방명록 · 이웃)
+    POST {address, agree}: 한채 주소를 그대로 적고 확인 체크를 해야 허문다. 무엇을 지우는지는 demolish.py
+    """
+
+    permission_classes = [IsMember]
+    throttle_scope = "login"
+
+    def get(self, request, address):
+        return Response(demolish_summary(owned_blog(address, request.user)))
+
+    def post(self, request, address):
+        blog = owned_blog(address, request.user)
+        if (request.data.get("address") or "").strip() != blog.address:
+            raise APIError(400, "VALIDATION_ERROR", "한채 주소가 맞지 않아요.", fields={"address": "한채 주소가 맞지 않아요."})
+        if request.data.get("agree") is not True:
+            raise APIError(400, "VALIDATION_ERROR", "위 내용을 확인했다고 체크해 주세요.", fields={"agree": "위 내용을 확인했다고 체크해 주세요."})
+        with transaction.atomic():
+            files = demolish_blogs(Blog.objects.select_for_update().filter(pk=blog.pk), request.user)
+            transaction.on_commit(lambda: delete_files(files))
+        return Response({"demolished": True})
+

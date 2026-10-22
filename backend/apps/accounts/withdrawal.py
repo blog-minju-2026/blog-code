@@ -14,17 +14,16 @@ from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
 from django.utils import timezone
 
+from apps.blogs.demolish import demolish_blogs
 from apps.blogs.models import Blog
 from apps.common.storage import delete_files
 from apps.community.models import Comment, GuestbookEntry, PostLike, Subscription
-from apps.posts.models import Category, Image, Post, Tag
+from apps.posts.models import Image, Post
 
 from . import attempts
 from .models import VerificationMailLog
 from .social import PROVIDER_NAMES
 
-# 탈퇴한 회원의 한채 이름 (행은 주소를 예약하려고 남긴다)
-DEMOLISHED_BLOG_NAME = "허문 한채"
 
 
 def leave_summary(user):
@@ -54,22 +53,9 @@ def withdraw(user):
     """회원을 탈퇴시킨다. 세션은 부르는 쪽(LeaveView)이 끊는다."""
     files = _file_names(user.profile_image)
     with transaction.atomic():
-        blogs = list(Blog.objects.select_for_update().filter(owner=user))
-        for blog in blogs:
-            files += _file_names(blog.profile_image)
-        # 내 한채 안의 것: 기록(딸린 댓글 · 공감 · 조회 · 순위가 함께), 방, 태그, 받은 방명록, 이웃
-        Post.objects.filter(blog__in=blogs).delete()
-        # 방은 상위 방을 PROTECT 로 잡으므로 아래 방부터 지운다
-        rooms = Category.objects.filter(blog__in=blogs)
-        while rooms.exists():
-            rooms.filter(children__isnull=True).delete()
-        Tag.objects.filter(blog__in=blogs).delete()
-        GuestbookEntry.objects.filter(blog__in=blogs).delete()
-        Subscription.objects.filter(blog__in=blogs).delete()
+        # 내 한채(허문 한채까지): 기록 · 사진 · 방 · 태그 · 받은 방명록 · 이웃을 지우고 주소만 남긴다 (blogs/demolish.py)
+        files += demolish_blogs(Blog.objects.select_for_update().filter(owner=user), user)
         now = timezone.now()
-        Blog.objects.filter(pk__in=[b.pk for b in blogs]).update(
-            name=DEMOLISHED_BLOG_NAME, description="", profile_image=None, deleted_at=now, updated_at=now
-        )
 
         # 내가 한 것: 올린 사진, 맺은 이웃, 누른 공감
         for image in Image.objects.filter(uploader=user):

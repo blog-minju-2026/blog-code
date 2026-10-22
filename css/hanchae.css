@@ -1386,3 +1386,144 @@ a.tag:hover {
     height: 160px;
   }
 }
+
+/* ===== 되돌릴 수 없는 일의 확인 창: 탈퇴(me) · 한채 허물기(settings) =====
+   사라지는 것 · 남는 것을 나란히 보이고, 비밀번호나 주소를 적고 확인 체크를 받는다 */
+.leave-dialog {
+  width: min(560px, calc(100% - 24px));
+  max-height: calc(100% - 32px);
+  padding: 28px;
+  overflow-y: auto;
+}
+
+.leave-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.leave-dialog h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.leave-dialog form > p {
+  margin-top: 0;
+}
+
+.leave-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.leave-lists section {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leave-gone {
+  border: 1px solid var(--danger);
+}
+
+.leave-gone h3 {
+  color: var(--danger);
+}
+
+.leave-stay {
+  background: var(--hanji-deep);
+}
+
+.leave-lists h3 {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.leave-lists ul {
+  padding-left: 18px;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.leave-dialog .leave-stay-hint {
+  margin-top: 0;
+  font-size: 13px;
+}
+
+.leave-dialog .field-status:empty,
+.leave-dialog .form-error-line:empty {
+  display: none;
+}
+
+.leave-dialog .input[aria-invalid="true"] {
+  border: 2px solid var(--seal);
+}
+
+.leave-agree {
+  min-height: var(--touch-target);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.leave-agree input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--danger);
+}
+
+.leave-dialog .hc-dialog-actions {
+  margin-top: 0;
+}
+
+/* 휴대폰: 단추를 세로로 크게 (탈퇴하기가 위) */
+@media (max-width: 600px) {
+  .leave-dialog {
+    padding: 22px 18px;
+  }
+
+  .leave-dialog .hc-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .leave-dialog .hc-dialog-actions .btn {
+    width: 100%;
+    min-height: 48px;
+  }
+}
+
+/* ===== 한 줄 설정 상자: 로그아웃 · 탈퇴(me) · 한채 허물기(settings) ===== */
+.account-box {
+  padding: 20px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-box > div {
+  flex: 1 1 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-box h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.account-box span {
+  font-size: 14px;
+  color: var(--meok-sub);
+}
