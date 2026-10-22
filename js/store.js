@@ -120,6 +120,8 @@ const Store = (function () {
   const getComments = (address, no) => Api.get(`${postUrl(address, no)}/comments`);
   const addComment = (address, no, content, clientToken) => Api.post(`${postUrl(address, no)}/comments`, { content, client_token: clientToken });
   const deleteComment = (id) => Api.delete(`/api/comments/${id}`);
+  // 내 댓글 고치기 → 고친 Comment
+  const editComment = (id, content) => Api.patch(`/api/comments/${id}`, { content });
 
   // ----- 방명록 -----
   const getGuestbook = (address, page) => Api.get(`${blogUrl(address)}/guestbook${query({ page })}`);
@@ -194,6 +196,7 @@ const Store = (function () {
     getComments,
     addComment,
     deleteComment,
+    editComment,
     getGuestbook,
     addGuestbook,
     editGuestbook,
