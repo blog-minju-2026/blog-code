@@ -41,6 +41,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 임시저장 목록: 기록 · 마지막 저장 · 관리 */
+.manage-row.draft-row {
+  grid-template-columns: minmax(0, 1fr) 180px 150px;
+}
+
+.draft-untitled {
+  font-style: italic;
+  color: var(--meok-sub);
+}
+
 /* 공개 범위로 거르기 */
 .filter-chips {
   display: flex;
@@ -237,6 +247,14 @@
   }
 
   .manage-row .visibility-switch { width: 100%; }
+
+  /* 임시저장 줄은 위에서 아래로 쌓는다 */
+  .manage-row.draft-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+
+  .manage-row.draft-row > * { grid-area: auto; }
 
   .manage-post { grid-area: post; }
   .manage-date { grid-area: date; }

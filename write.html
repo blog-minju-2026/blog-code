@@ -24,7 +24,8 @@
         </a>
         <span class="write-mode" id="write-mode">새 기록 쓰기</span>
         <div class="write-buttons">
-          <button type="button" class="btn draft-button" disabled>임시저장 (2차)</button>
+          <span class="draft-status" id="draft-status" role="status"></span>
+          <button type="button" class="btn btn-secondary draft-button" id="draft-button">임시저장</button>
           <button type="submit" class="btn btn-primary publish-button" id="publish-button">발행</button>
         </div>
       </div>
@@ -34,6 +35,7 @@
 
     <div class="write-cols">
       <main class="write-main card">
+        <p class="draft-notice" id="draft-notice" hidden></p>
         <div class="write-title-box">
           <label for="title" class="sr-only">제목</label>
           <input id="title" class="write-title" type="text" maxlength="100" placeholder="제목을 입력하세요" autocomplete="off">
