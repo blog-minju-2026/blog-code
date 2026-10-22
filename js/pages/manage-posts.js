@@ -1,28 +1,26 @@
 /**
  * 기록 관리 (SCR-15) /manage-posts
  * manage-posts                       모든 기록 (나만 보기 포함)
- * manage-posts?visibility=PRIVATE     공개 범위로 거르기
+ * manage-posts?visibility=PRIVATE     공개 범위로 거르기 (PUBLIC · SUBSCRIBERS · PRIVATE)
  * 목록에서 공개 범위를 바로 바꾸고, 수정 · 삭제한다.
  */
 const params = new URLSearchParams(location.search);
-const visibility = ['PUBLIC', 'PRIVATE'].includes(params.get('visibility')) ? params.get('visibility') : '';
-const page = Number(params.get('page')) || 1;
-const FILTERS = [
-  { value: '', label: '전체' },
+const VISIBILITIES = [
   { value: 'PUBLIC', label: '공개' },
+  { value: 'SUBSCRIBERS', label: '이웃 공개' },
   { value: 'PRIVATE', label: '나만 보기' },
 ];
+const visibility = VISIBILITIES.some((v) => v.value === params.get('visibility')) ? params.get('visibility') : '';
+const page = Number(params.get('page')) || 1;
+const FILTERS = [{ value: '', label: '전체' }, ...VISIBILITIES];
 let address = '';
 
-// 전체 · 공개 · 나만 보기 개수 (주인은 목록에 나만 보기도 섞여 온다)
+// 전체 · 공개 범위마다 개수 (주인은 목록에 이웃 공개 · 나만 보기도 섞여 온다)
 async function loadCounts() {
-  const [all, pub, priv] = await Promise.all([
-    Store.listPosts(address, { size: 1 }),
-    Store.listPosts(address, { visibility: 'PUBLIC', size: 1 }),
-    Store.listPosts(address, { visibility: 'PRIVATE', size: 1 }),
-  ]);
-  const counts = { '': all.total, PUBLIC: pub.total, PRIVATE: priv.total };
-  document.getElementById('counts').innerHTML = `기록 <strong>${counts['']}</strong> · 공개 <strong>${counts.PUBLIC}</strong> · 나만 보기 <strong>${counts.PRIVATE}</strong>`;
+  const results = await Promise.all(FILTERS.map((f) => Store.listPosts(address, { visibility: f.value, size: 1 })));
+  const counts = Object.fromEntries(FILTERS.map((f, i) => [f.value, results[i].total]));
+  document.getElementById('counts').innerHTML = `기록 <strong>${counts['']}</strong> · `
+    + VISIBILITIES.map((v) => `${v.label} <strong>${counts[v.value]}</strong>`).join(' · ');
   document.getElementById('filters').innerHTML = FILTERS
     .map((f) => `<a href="${Links.managePosts({ visibility: f.value })}"${f.value === visibility ? ' aria-current="page"' : ''}>${f.label} ${counts[f.value]}</a>`)
     .join('');
@@ -30,7 +28,6 @@ async function loadCounts() {
 
 function rowHTML(p) {
   const topic = p.topic ? `골목 ${escapeHTML(p.topic.name)}` : '골목 없음';
-  const isPublic = p.visibility === 'PUBLIC';
   // 관리자가 숨긴 기록은 공개 범위와 상관없이 다른 사람에게 보이지 않는다 (ADMIN-03)
   const hidden = p.hidden ? `<span class="private-mark" title="사유: ${escapeHTML(p.hidden.reason)}">관리자가 숨김 · ${escapeHTML(p.hidden.reason)}</span>` : '';
   return `
@@ -45,8 +42,7 @@ function rowHTML(p) {
       <span class="manage-date">${formatDate(p.published_at)}</span>
       <span class="num stat">${p.view_count} · ${p.like_count}</span>
       <div class="visibility-switch" role="radiogroup" aria-label="‘${escapeHTML(p.title)}’ 공개 범위">
-        <button type="button" role="radio" data-visibility="PUBLIC" aria-checked="${isPublic}">공개</button>
-        <button type="button" role="radio" data-visibility="PRIVATE" aria-checked="${!isPublic}">나만 보기</button>
+        ${VISIBILITIES.map((v) => `<button type="button" role="radio" data-visibility="${v.value}" aria-checked="${p.visibility === v.value}">${v.label}</button>`).join('')}
       </div>
       <span class="manage-tools">
         <a class="text-link" href="${Links.write(p.no)}">수정</a>

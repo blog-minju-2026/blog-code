@@ -103,7 +103,8 @@
           <fieldset class="setting">
             <legend>공개 범위</legend>
             <label class="radio"><input type="radio" name="visibility" value="PUBLIC" checked> 공개</label>
-            <label class="radio is-disabled"><input type="radio" name="visibility" value="SUBSCRIBERS" disabled> 이웃 공개 (2차)</label>
+            <label class="radio"><input type="radio" name="visibility" value="SUBSCRIBERS" aria-describedby="neighbor-hint"> 이웃 공개</label>
+            <span class="setting-hint radio-hint" id="neighbor-hint">내 한채의 이웃과 나만 볼 수 있어요. 골목 · 새 기록 · 검색에는 나오지 않아요.</span>
             <label class="radio"><input type="radio" name="visibility" value="PRIVATE"> 나만 보기</label>
           </fieldset>
 

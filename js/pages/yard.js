@@ -17,7 +17,8 @@ const page = Number(params.get('page')) || 1;
 const isFiltered = Boolean(filter.category || filter.tag || filter.q);
 
 function postRowHTML(post) {
-  const lock = post.visibility === 'PRIVATE' ? '<span class="private-mark">나만 보기</span> · ' : '';
+  const VISIBILITY_MARKS = { PRIVATE: '나만 보기', SUBSCRIBERS: '이웃 공개' };
+  const lock = VISIBILITY_MARKS[post.visibility] ? `<span class="private-mark">${VISIBILITY_MARKS[post.visibility]}</span> · ` : '';
   return `
     <a class="post-row" href="${Links.post(post.blog.address, post.no)}">
       <div class="post-row-text">

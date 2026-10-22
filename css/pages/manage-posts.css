@@ -78,7 +78,7 @@
 
 .manage-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 90px 190px 120px;
+  grid-template-columns: minmax(0, 1fr) 110px 90px 252px 120px;
   gap: 16px;
   align-items: center;
   padding: 14px 20px;
@@ -157,8 +157,8 @@
 /* 공개 | 나만 보기 스위치 */
 .visibility-switch {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: 176px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 252px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -230,10 +230,13 @@
     grid-template-areas:
       "post post"
       "date stat"
-      "switch tools";
+      "switch switch"
+      "tools tools";
     gap: 10px 12px;
     padding: 16px;
   }
+
+  .manage-row .visibility-switch { width: 100%; }
 
   .manage-post { grid-area: post; }
   .manage-date { grid-area: date; }
