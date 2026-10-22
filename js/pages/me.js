@@ -264,6 +264,12 @@ document.getElementById('method-list').addEventListener('click', async (e) => {
 });
 
 document.getElementById('connect-cancel').addEventListener('click', () => connectDialog.close());
+// 제공사 화면에서 뒤로 오면 이 화면이 잇기 창 · 꺼진 버튼 그대로 되살아난다 (뒤로-앞으로 캐시). 처음 상태로
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  document.getElementById('connect-submit').disabled = false;
+  if (connectDialog.open) connectDialog.close();
+});
 connectDialog.addEventListener('click', (e) => {
   if (e.target === connectDialog) connectDialog.close(); // 바깥을 누르면 닫는다
 });

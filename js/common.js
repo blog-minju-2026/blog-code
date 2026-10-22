@@ -91,6 +91,10 @@ function renderSocialButtons(box, providers, next, { short = false, brand = fals
       });
     });
   });
+  // 제공사 화면에서 뒤로 오면 브라우저가 버튼이 꺼진 그대로 이 화면을 되살린다 (뒤로-앞으로 캐시). 다시 켠다
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) box.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+  });
   return box.childElementCount > 0;
 }
 
