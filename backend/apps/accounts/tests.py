@@ -122,6 +122,13 @@ class LoginTests(APITestCase):
         self.assertEqual(self.client.post("/api/auth/logout").status_code, 204)
         self.assertEqual(self.client.get("/api/auth/me").json(), {"user": None})
 
+    def test_login_ends_when_browser_closes(self):
+        # 세션 쿠키에 만료일이 없어야 브라우저를 닫을 때 지워진다. 서버 쪽 세션은 2주
+        cookie = self.login().cookies["sessionid"]
+        self.assertEqual((cookie["expires"], cookie["max-age"]), ("", ""))
+        self.assertTrue(self.client.session.get_expire_at_browser_close())
+        self.assertEqual(self.client.session.get_expiry_age(), 60 * 60 * 24 * 14)
+
     def test_logout_needs_login(self):
         res = self.client.post("/api/auth/logout")
         self.assertEqual(res.status_code, 401)

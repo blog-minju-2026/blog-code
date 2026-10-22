@@ -198,7 +198,9 @@ DEFAULT_FROM_EMAIL = f"한채 <{EMAIL_HOST_USER or 'noreply@localhost'}>"
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[한채] "
 
 
-# 로그인 유지: 마지막 사용 기준 2주 (기능명세서 9.2)
+# 로그인 유지: 브라우저를 닫으면 로그아웃 (세션 쿠키에 만료일을 두지 않는다).
+# 브라우저를 열어 둔 채여도 마지막 사용에서 2주가 지나면 서버가 세션을 끝낸다 (기능명세서 9.2)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_SAMESITE = "Lax"
