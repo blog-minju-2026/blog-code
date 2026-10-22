@@ -152,3 +152,16 @@ class MeUpdateSerializer(serializers.Serializer):
         if User.objects.filter(nickname=value).exclude(pk=user.pk).exists():
             raise serializers.ValidationError("이미 쓰고 있는 닉네임이에요.")
         return value
+
+
+class LeaveSerializer(serializers.Serializer):
+    """탈퇴: 비밀번호가 있으면 비밀번호, 없으면(소셜로만 가입) 닉네임을 그대로 적어 확인한다."""
+
+    password = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+    nickname = serializers.CharField(required=False, allow_blank=True, trim_whitespace=True)
+    agree = serializers.BooleanField()
+
+    def validate_agree(self, value):
+        if not value:
+            raise serializers.ValidationError("위 내용을 확인했다고 체크해 주세요.")
+        return value

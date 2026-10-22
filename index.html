@@ -33,6 +33,13 @@
   <div class="dancheong-band" aria-hidden="true"></div>
 
   <div class="village">
+    <!-- 탈퇴하고 돌아왔을 때 (/?left=1, village.js) -->
+    <p class="left-notice" id="left-notice" role="status" hidden>
+      <span>탈퇴했어요. 그동안 한채에서 지내 주셔서 고마워요. 내 정보와 한채는 모두 지웠어요.</span>
+      <button type="button" class="left-notice-close" id="left-notice-close" aria-label="안내 닫기">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </p>
     <main class="village-main">
       <!-- 어귀 -->
       <section class="entry card" aria-labelledby="entry-title">
@@ -110,7 +117,7 @@
     <div class="hc-footer-inner">
       <span class="hc-footer-logo">한채</span>
       <span class="hc-footer-sub">한 사람, 한 채, 그 안의 기록</span>
-      <span class="hc-footer-sub">이용약관 · 개인정보처리방침</span>
+      <span class="hc-footer-sub hc-footer-links"><a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a></span>
     </div>
   </footer>
 

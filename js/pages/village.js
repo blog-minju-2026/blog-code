@@ -173,7 +173,19 @@ async function renderRankings() {
     : '<p class="empty">아직 북적이는 한채가 없어요. 매 정각에 다시 세요.</p>';
 }
 
+// 탈퇴하고 돌아왔으면 한 번 알린다. 새로고침해도 다시 뜨지 않게 주소에서 ?left=1 을 뺀다
+function showLeftNotice() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('left') !== '1') return;
+  const notice = document.getElementById('left-notice');
+  notice.hidden = false;
+  document.getElementById('left-notice-close').addEventListener('click', () => { notice.hidden = true; });
+  params.delete('left');
+  history.replaceState(null, '', location.pathname + (params.toString() ? `?${params}` : '') + location.hash);
+}
+
 async function main() {
+  showLeftNotice();
   bindVillageSearch(document.getElementById('village-search'));
   const { user } = await renderHeaderNav(document.getElementById('header-nav'));
   const myBlog = user ? await Store.getMyBlog() : null;

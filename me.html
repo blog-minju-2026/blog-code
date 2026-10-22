@@ -100,13 +100,49 @@
           <button type="button" class="btn btn-secondary" id="logout-button">로그아웃</button>
         </section>
 
-        <section class="later-box" aria-labelledby="leave-title">
+        <section class="card account-box" aria-labelledby="leave-title">
           <div>
-            <h2 id="leave-title">탈퇴 <small>2차</small></h2>
-            <span>탈퇴하면 내 한채와 기록이 함께 사라지고, 남긴 댓글은 '떠난 사람'으로 보여요.</span>
+            <h2 id="leave-title">탈퇴</h2>
+            <span>탈퇴하면 내 한채와 기록이 함께 사라지고, 다른 한채에 남긴 댓글 · 방명록은 '떠난 사람'으로 보여요. 되돌릴 수 없어요.</span>
           </div>
-          <button type="button" class="btn btn-danger-outline" disabled>탈퇴하기</button>
+          <button type="button" class="btn btn-danger-outline" id="leave-button">탈퇴하기</button>
         </section>
+
+        <!-- 탈퇴 확인 창: 내용은 me.js 가 GET /api/me/leave 로 채운다 -->
+        <dialog class="hc-dialog leave-dialog" id="leave-dialog" aria-labelledby="leave-dialog-title">
+          <form id="leave-form" method="dialog" novalidate>
+            <h2 id="leave-dialog-title">한채에서 탈퇴할까요?</h2>
+            <p>탈퇴하면 되돌릴 수 없어요. 아래 내용을 확인해 주세요.</p>
+            <div class="leave-lists">
+              <section class="leave-gone" aria-labelledby="leave-gone-title">
+                <h3 id="leave-gone-title">사라지는 것</h3>
+                <ul id="leave-gone"></ul>
+              </section>
+              <section class="leave-stay" aria-labelledby="leave-stay-title">
+                <h3 id="leave-stay-title">'떠난 사람'으로 남는 것</h3>
+                <ul id="leave-stay"></ul>
+                <p class="leave-stay-hint" id="leave-stay-hint">지우고 싶으면 탈퇴하기 전에 직접 지워 주세요.</p>
+              </section>
+            </div>
+            <p id="leave-again"></p>
+            <div class="field-group" id="leave-password-group">
+              <label for="leave-password">비밀번호 <span class="field-hint">본인인지 확인할게요</span></label>
+              <input class="input" id="leave-password" name="password" type="password" autocomplete="current-password" aria-describedby="leave-password-error">
+              <span class="field-status is-bad" id="leave-password-error" role="alert"></span>
+            </div>
+            <div class="field-group" id="leave-nickname-group" hidden>
+              <label for="leave-nickname" id="leave-nickname-label"></label>
+              <input class="input" id="leave-nickname" name="nickname" type="text" autocomplete="off" aria-describedby="leave-nickname-error">
+              <span class="field-status is-bad" id="leave-nickname-error" role="alert"></span>
+            </div>
+            <label class="leave-agree"><input type="checkbox" name="agree"> 위 내용을 확인했고, 탈퇴할게요</label>
+            <p class="form-error-line" id="leave-error" role="alert"></p>
+            <div class="hc-dialog-actions">
+              <button type="button" class="btn btn-secondary" id="leave-cancel">취소</button>
+              <button type="submit" class="btn btn-danger" id="leave-submit">탈퇴하기</button>
+            </div>
+          </form>
+        </dialog>
       </main>
 
       <aside class="house-side" aria-label="내 한채" id="my-house"></aside>

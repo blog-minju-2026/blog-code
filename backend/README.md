@@ -38,7 +38,7 @@ DB_PORT=3306
 # 인증 메일을 실제로 보내려면 (없으면 메일이 터미널에 찍힌다)
 # EMAIL_HOST_USER=hanchae.blog@gmail.com
 # EMAIL_HOST_PASSWORD=<Gmail 앱 비밀번호 16자리>
-# 소셜 로그인: 앱 키를 넣은 제공사만 켜진다 (만드는 법은 deploy/README.md 「소셜 로그인 켜기」)
+# 소셜 로그인: 앱 키를 넣은 제공사만 켜진다 (만드는 법은 deploy/social-login.md)
 # Redirect URI 는 http://127.0.0.1:8000/accounts/<kakao|google|naver>/login/callback/
 # KAKAO_CLIENT_ID=<REST API 키>
 # KAKAO_SECRET=<Client Secret>

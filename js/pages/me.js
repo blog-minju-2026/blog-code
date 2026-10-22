@@ -1,6 +1,6 @@
 /**
  * 내 정보 (SCR-11) /me
- * 닉네임 · 프로필 사진(대문의 주인 사진도 이 사진) · 로그아웃.
+ * 닉네임 · 프로필 사진(대문의 주인 사진도 이 사진) · 로그아웃 · 탈퇴.
  * 사진은 올리거나 지우는 즉시 저장하고, 닉네임은 '저장'을 눌러 저장한다.
  */
 const form = document.getElementById('me-form');
@@ -116,6 +116,118 @@ document.getElementById('logout-button').addEventListener('click', async () => {
     location.href = '/';
   } catch (err) {
     alert(err.message);
+  }
+});
+
+// ----- 탈퇴 (AUTH-06): 사라지는 것 · 남는 것을 보여 주고 비밀번호(없으면 닉네임)로 확인한다 -----
+const leaveDialog = document.getElementById('leave-dialog');
+const leaveForm = document.getElementById('leave-form');
+const leaveError = document.getElementById('leave-error');
+let leaveConfirmWith = 'password';
+
+function leaveField(name) {
+  return { input: leaveForm.elements[name], error: document.getElementById(`leave-${name}-error`) };
+}
+
+function showLeaveFieldError(name, message) {
+  const { input, error } = leaveField(name);
+  error.textContent = message;
+  input.setAttribute('aria-invalid', 'true');
+  input.focus();
+}
+
+function clearLeaveErrors() {
+  leaveError.textContent = '';
+  ['password', 'nickname'].forEach((name) => {
+    const { input, error } = leaveField(name);
+    error.textContent = '';
+    input.removeAttribute('aria-invalid');
+  });
+}
+
+// '민주를' · '서현을'처럼 끝 글자의 받침에 맞는 조사 (한글이 아니면 '를')
+function objectParticle(word) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  return code >= 0 && code <= 11171 && code % 28 ? '을' : '를';
+}
+
+function fillLeaveDialog(summary) {
+  const provider = summary.social_provider;
+  const gone = [];
+  if (summary.blog) {
+    gone.push(`내 한채 「${escapeHTML(summary.blog.name)}」`);
+    gone.push(`기록 ${summary.post_count}개와 올린 사진`);
+    gone.push(`방 · 받은 방명록 · 이웃 ${summary.subscriber_count}명`);
+  } else {
+    gone.push('올린 사진');
+  }
+  gone.push('내가 맺은 이웃 · 누른 공감');
+  gone.push(provider ? `내 정보와 ${escapeHTML(provider)} 계정 연결` : '내 정보 (이메일 · 닉네임 · 사진)');
+  document.getElementById('leave-gone').innerHTML = gone.map((item) => `<li>${item}</li>`).join('');
+
+  const stay = [];
+  if (summary.comment_count) stay.push(`다른 한채에 남긴 댓글 ${summary.comment_count}개`);
+  if (summary.guestbook_count) stay.push(`다른 한채에 남긴 방명록 ${summary.guestbook_count}개`);
+  document.getElementById('leave-stay').innerHTML = stay.length
+    ? stay.map((item) => `<li>${item}</li>`).join('')
+    : '<li>남는 것이 없어요</li>';
+  document.getElementById('leave-stay-hint').hidden = !stay.length;
+
+  document.getElementById('leave-again').textContent = provider
+    ? `같은 ${provider} 계정으로 다시 가입할 수는 있지만, 지금의 한채와 기록은 돌아오지 않아요.`
+    : '같은 이메일로 다시 가입할 수는 있지만, 지금의 한채와 기록은 돌아오지 않아요.';
+
+  // 비밀번호가 있으면 비밀번호, 없으면(소셜로만 가입) 닉네임을 그대로 적어 확인한다
+  leaveConfirmWith = summary.confirm_with;
+  document.getElementById('leave-password-group').hidden = leaveConfirmWith !== 'password';
+  document.getElementById('leave-nickname-group').hidden = leaveConfirmWith !== 'nickname';
+  document.getElementById('leave-nickname-label').innerHTML = `${escapeHTML(provider || '소셜 계정')}로 가입해 비밀번호가 없어요. `
+    + `확인을 위해 닉네임 <strong>${escapeHTML(summary.nickname)}</strong>${objectParticle(summary.nickname)} 그대로 적어 주세요.`;
+}
+
+document.getElementById('leave-button').addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  button.disabled = true;
+  try {
+    fillLeaveDialog(await Store.leaveSummary());
+    leaveForm.reset();
+    clearLeaveErrors();
+    leaveDialog.showModal();
+    leaveField(leaveConfirmWith).input.focus();
+  } catch (err) {
+    alert(err.firstMessage || err.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('leave-cancel').addEventListener('click', () => leaveDialog.close());
+leaveDialog.addEventListener('click', (e) => {
+  if (e.target === leaveDialog) leaveDialog.close(); // 바깥을 누르면 닫는다
+});
+
+leaveForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearLeaveErrors();
+  const value = leaveField(leaveConfirmWith).input.value;
+  if (!value.trim()) {
+    return showLeaveFieldError(leaveConfirmWith, leaveConfirmWith === 'password' ? '비밀번호를 입력해 주세요.' : '닉네임을 적어 주세요.');
+  }
+  if (!leaveForm.elements.agree.checked) {
+    leaveError.textContent = '위 내용을 확인했다고 체크해 주세요.';
+    return;
+  }
+
+  const submit = document.getElementById('leave-submit');
+  submit.disabled = true;
+  try {
+    await Store.leave(leaveConfirmWith === 'password' ? { password: value } : { nickname: value.trim() });
+    location.href = '/?left=1';
+  } catch (err) {
+    const field = ['password', 'nickname'].find((name) => err.fields && err.fields[name]);
+    if (field) showLeaveFieldError(field, err.fields[field]);
+    else leaveError.textContent = err.firstMessage || err.message;
+    submit.disabled = false;
   }
 });
 
