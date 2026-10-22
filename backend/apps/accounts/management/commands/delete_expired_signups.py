@@ -4,6 +4,8 @@ from apps.accounts.pending import expired_pending_signups
 
 
 class Command(BaseCommand):
+    # 지울 가입의 이메일 · 닉네임을 한 줄씩 보여 준다. 서버에서 손으로 볼 때만 쓰고, 로그가 공개되는 곳
+    # (GitHub Actions)에서는 부르지 않는다. 정기 정리는 개수만 쓰는 run_maintenance 가 한다
     help = "인증 링크가 만료되도록 이메일 인증을 안 마친 가입을 지운다 (이메일을 잘못 쓴 가입 등)."
 
     def add_arguments(self, parser):

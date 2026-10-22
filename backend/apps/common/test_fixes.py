@@ -117,3 +117,23 @@ class SanctionedBlogCommentTests(APITestCase):
     def test_author_link_skips_closed_blog(self):
         self.assertIsNone(user_summary(self.owner, None)["blog_address"])
         self.assertEqual(user_summary(self.reader, None)["blog_address"], "seohyun")
+
+
+class MaintenanceLogPrivacyTests(APITestCase):
+    """정리 명령의 출력은 공개 Actions 로그에 남는다. 개수만 쓰고 이메일 · 닉네임은 쓰지 않는다."""
+
+    def test_output_has_counts_but_no_personal_data(self):
+        pending = make_member(email="pending-person@example.com", nickname="숨길닉네임", verified=False)
+        old = timezone.now() - timedelta(days=30)
+        type(pending).objects.filter(pk=pending.pk).update(created_at=old)
+
+        for dry_run in (True, False):
+            out = StringIO()
+            call_command("run_maintenance", dry_run=dry_run, stdout=out)
+            text = out.getvalue()
+            self.assertIn("인증 안 마친 가입 1개", text)
+            self.assertNotIn("pending-person", text)
+            self.assertNotIn("@", text)
+            self.assertNotIn("숨길닉네임", text)
+        self.assertFalse(type(pending).objects.filter(pk=pending.pk).exists())
+
