@@ -10,6 +10,15 @@ from django.dispatch import receiver
 
 PROVIDER_NAMES = {"kakao": "카카오", "google": "구글", "naver": "네이버"}
 
+# 이메일을 실제로 확인했는지 알려 주는 제공사. 카카오는 is_email_verified, 구글은 email_verified 를 준다.
+# 네이버는 그런 값 없이 allauth 가 늘 '인증됨'으로 표시하므로, 그 이메일로 기존 회원에 잇거나
+# 남의 인증 대기 가입을 지우지 않는다 (네이버 계정의 연락처 이메일을 남의 주소로 해 두는 경우를 막는다)
+EMAIL_TRUSTED_PROVIDERS = {"kakao", "google"}
+
+
+def email_is_trusted(sociallogin):
+    return sociallogin.account.provider in EMAIL_TRUSTED_PROVIDERS
+
 
 def verified_email(sociallogin):
     """제공사가 인증했다고 알려 준 이메일(소문자). 없으면 None.

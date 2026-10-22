@@ -52,7 +52,7 @@ from .serializers import (
     check_new_password,
     me_payload,
 )
-from .social import pending_signup_payload, verified_email
+from .social import email_is_trusted, pending_signup_payload, verified_email
 from .withdrawal import leave_summary, withdraw
 
 logger = logging.getLogger(__name__)
@@ -348,7 +348,7 @@ class SocialSignupView(EnforceCsrfMixin, APIView):
 
     이메일 가입처럼 닉네임과 약관 · 개인정보 · 만 14세 동의를 받는다. 비밀번호는 없다(필요하면 비밀번호 재설정으로 정한다).
     이메일은 제공사가 인증했다고 알려 준 것만 쓴다. 그 이메일로 인증을 기다리는 가입이 있으면,
-    제공사가 이 사람이 메일 주인임을 확인했으므로 그 가입은 자리를 내준다.
+    제공사가 이 사람이 메일 주인임을 확인했으므로 그 가입은 자리를 내준다 (확인 여부를 알려 주는 카카오 · 구글만).
     """
 
     throttle_scope = "signup"
@@ -363,8 +363,8 @@ class SocialSignupView(EnforceCsrfMixin, APIView):
         nickname = serializer.validated_data["nickname"]
         email = verified_email(sociallogin)
 
-        # 인증을 안 마친 가입은 이 닉네임 · 이메일 자리를 내준다
-        taken = Q(nickname=nickname) | Q(email__iexact=email) if email else Q(nickname=nickname)
+        # 인증을 안 마친 가입은 이 닉네임 자리를, 이메일을 확인해 주는 제공사면 이메일 자리도 내준다
+        taken = Q(nickname=nickname) | Q(email__iexact=email) if email and email_is_trusted(sociallogin) else Q(nickname=nickname)
         removable_pending_signups().filter(taken).delete()
 
         conflicts = {}
@@ -445,6 +445,9 @@ class MeUpdateView(APIView):
         return Response({"user": me_payload(user, request)})
 
 
+ADMIN_CANNOT_LEAVE = "마을 관리인은 탈퇴할 수 없어요. 다른 관리인에게 역할을 넘긴 뒤 탈퇴해 주세요."
+
+
 class LeaveView(EnforceCsrfMixin, APIView):
     """GET · POST /api/me/leave — 탈퇴 (AUTH-06).
 
@@ -465,7 +468,7 @@ class LeaveView(EnforceCsrfMixin, APIView):
         data = serializer.validated_data
 
         if user.role == User.Role.ADMIN:
-            raise APIError(403, "FORBIDDEN", "마을 관리인은 탈퇴할 수 없어요. 다른 관리인에게 역할을 넘긴 뒤 탈퇴해 주세요.")
+            raise APIError(403, "FORBIDDEN", ADMIN_CANNOT_LEAVE)
 
         if user.has_usable_password():
             # 비밀번호를 여러 번 틀리면 로그인처럼 잠시 막는다 (이메일이 없으면 회원 번호로 센다)

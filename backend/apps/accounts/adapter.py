@@ -16,7 +16,7 @@ from django.http import HttpResponseRedirect
 
 from apps.common.access import current_sanction
 
-from .social import keep_only_signup_values
+from .social import email_is_trusted, keep_only_signup_values
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +75,10 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         """제공사가 인증한 이메일이, 한채에서도 인증을 마친 이메일일 때만 그 회원으로 로그인한다.
 
         인증을 기다리는 가입은 남이 먼저 적어 둔 주소일 수 있어 잇지 않는다
-        (그런 가입은 가입 마무리에서 자리를 내준다).
+        (그런 가입은 가입 마무리에서 자리를 내준다). 이메일 확인 여부를 알려 주지 않는 제공사(네이버)는 잇지 않는다.
         """
+        if not email_is_trusted(sociallogin):
+            return None
         for address in sociallogin.email_addresses:
             if not address.verified:
                 continue

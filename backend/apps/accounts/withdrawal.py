@@ -32,6 +32,8 @@ def leave_summary(user):
     blog = user.blogs.filter(deleted_at__isnull=True).first()
     social = SocialAccount.objects.filter(user=user).values_list("provider", flat=True).first()
     return {
+        # 마을 관리인은 탈퇴할 수 없다 (관리 기록이 관리인을 가리키고, 관리인이 없어지는 것을 막는다)
+        "can_leave": user.role != user.Role.ADMIN,
         "nickname": user.nickname,
         # 비밀번호가 있으면 비밀번호로, 없으면(소셜로만 가입) 닉네임을 적어 확인한다
         "confirm_with": "password" if user.has_usable_password() else "nickname",

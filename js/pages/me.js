@@ -189,7 +189,13 @@ document.getElementById('leave-button').addEventListener('click', async (e) => {
   const button = e.currentTarget;
   button.disabled = true;
   try {
-    fillLeaveDialog(await Store.leaveSummary());
+    const summary = await Store.leaveSummary();
+    // 마을 관리인은 탈퇴할 수 없다. 비밀번호까지 넣게 하지 않고 바로 알린다
+    if (!summary.can_leave) {
+      alert('마을 관리인은 탈퇴할 수 없어요. 다른 관리인에게 역할을 넘긴 뒤 탈퇴해 주세요.');
+      return;
+    }
+    fillLeaveDialog(summary);
     leaveForm.reset();
     clearLeaveErrors();
     leaveDialog.showModal();

@@ -5,16 +5,18 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
 
 from apps.common.access import get_visible_blog_or_404, visible_blogs, visible_posts
 from apps.common.errors import APIError
-from apps.common.permissions import IsMember
+from apps.common.permissions import EnforceCsrfMixin, IsMember
 
 from . import writing
 from .images import image_payload, save_upload
@@ -191,11 +193,15 @@ class PostDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PostViewCountView(APIView):
+class PostViewCountView(EnforceCsrfMixin, APIView):
     """POST /api/blogs/{address}/posts/{no}/views — 조회 한 번 기록 (POST-09, ERD REQ-008).
 
     같은 방문자(회원 또는 hc_vid 쿠키)가 30분 안에 다시 부르면 세지 않고, 주인 본인의 조회도 세지 않는다.
+    부풀리기 막기: 다른 사이트에서 부르지 못하게 CSRF 를 받고, 회원 · IP 마다 횟수를 제한하고(post_view),
+    쿠키 없이 처음 온 방문자는 같은 IP 에서 30분 안에 같은 기록을 한 번만 센다 (쿠키를 버리며 되풀이하는 것을 막는다).
     """
+
+    throttle_scope = "post_view"
 
     def post(self, request, address, no):
         blog = get_visible_blog_or_404(address, request.user)
@@ -211,6 +217,12 @@ class PostViewCountView(APIView):
             )
         if request.user.is_authenticated and blog.owner_id == request.user.pk:
             return response
+
+        if not request.user.is_authenticated and VISITOR_COOKIE not in request.COOKIES:
+            ip = BaseThrottle().get_ident(request)
+            ip_key = "post-view-ip:" + hashlib.sha256(f"{settings.SECRET_KEY}:{post.pk}:{ip}".encode()).hexdigest()
+            if not cache.add(ip_key, 1, int(VIEW_DEDUP_WINDOW.total_seconds())):
+                return response
 
         who = f"u:{request.user.pk}" if request.user.is_authenticated else f"v:{visitor}"
         viewer_key = hashlib.sha256(f"{settings.SECRET_KEY}:{who}".encode()).hexdigest()
