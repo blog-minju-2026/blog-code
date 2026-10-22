@@ -1,0 +1,84 @@
+/* ===== 한채 관리 › 댓글 · 방명록 (CMT-04) ===== */
+/* 기록 관리(manage-posts.css)의 표 · 거르기 · 쪽 넘기기를 같이 쓰고, 줄 모양만 따로 둔다 */
+.talk-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 220px 110px 70px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.talk-row.manage-row-head {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 13px;
+  color: var(--meok-sub);
+}
+
+.talk-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.talk-who .avatar {
+  flex-shrink: 0;
+}
+
+.talk-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talk-name.is-gone {
+  font-weight: 400;
+  color: var(--meok-sub);
+}
+
+.talk-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.talk-text > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talk-hidden {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border: 1px solid var(--seal);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--seal);
+}
+
+.talk-where {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talk-date {
+  font-size: 14px;
+  color: var(--meok-sub);
+}
+
+.talk-row .delete {
+  justify-self: end;
+  min-height: 36px;
+  font-size: 14px;
+  color: var(--danger);
+}
