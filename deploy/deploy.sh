@@ -25,6 +25,8 @@ fi
 replace() {
   local name="$1" port="$2"
 
+  # 하던 요청(글 저장 등)을 마치도록 30초까지 기다렸다가 내린다. 바로 지우면 그 순간의 요청이 실패한다
+  docker stop -t 30 "$name" >/dev/null 2>&1 || true
   docker rm -f "$name" >/dev/null 2>&1 || true
   # 호스트 네트워크로 띄운다. 학교 서버에서는 Docker 기본 네트워크(bridge)에서
   # 학교 내부망의 DB(10.116.x)로 가는 길이 막혀 있다 (No route to host). 서버 자신은 DB 에 닿는다.
