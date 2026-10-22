@@ -35,7 +35,7 @@
 | `USE_HTTPS` | 도메인이 https 로 열리면 `1`, 아니면 비워 둔다 | 직접 |
 | `EMAIL_HOST_USER` | 인증 메일을 보낼 한채 전용 Gmail 주소 (예: `hanchae.blog@gmail.com`) | 직접 |
 | `EMAIL_HOST_PASSWORD` | 그 Gmail 의 **앱 비밀번호** 16자리 (계정 비밀번호가 아님). Google 계정 → 보안 → 2단계 인증을 켠 뒤 '앱 비밀번호'에서 만든다 | 직접 |
-| `KAKAO_CLIENT_ID` · `KAKAO_SECRET` | (소셜 로그인, 넣고 싶을 때만) 카카오 앱의 REST API 키 · Client Secret | 아래 「소셜 로그인 켜기」 |
+| `KAKAO_CLIENT_ID` · `KAKAO_SECRET` | (소셜 로그인, 넣고 싶을 때만) 카카오 앱의 REST API 키 · 클라이언트 시크릿 | [social-login.md](social-login.md) |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_SECRET` | 〃 Google OAuth 클라이언트 ID · 보안 비밀 | 〃 |
 | `NAVER_CLIENT_ID` · `NAVER_SECRET` | 〃 네이버 애플리케이션의 Client ID · Client Secret | 〃 |
 
@@ -45,14 +45,10 @@ python3 -c "import secrets; print(secrets.token_urlsafe(50))"   # DJANGO_SECRET_
 
 ### 소셜 로그인 켜기 (선택)
 
-제공사마다 앱을 만들고 받은 키를 위 Secret 에 넣으면, 다음 배포부터 로그인 화면에 그 버튼이 보인다. 넣지 않은 제공사는 버튼도 주소도 열리지 않는다.
-**Redirect URI(Callback URL)** 는 세 곳 모두 `https://<HANCHAE_DOMAIN>/accounts/<제공사>/login/callback/` (끝의 `/` 까지 같아야 한다, https 가 아니면 `http://`).
+제공사마다 앱을 만들고 받은 키를 위 Secret 에 넣은 뒤 다시 배포하면, 로그인 화면에 그 버튼이 보인다. 넣지 않은 제공사는 버튼도 주소도 열리지 않는다.
+**Redirect URI(Callback URL)** 는 세 곳 모두 `https://<HANCHAE_DOMAIN>/accounts/<제공사>/login/callback/` (끝의 `/` 까지 같아야 한다).
 
-| 제공사 | 만드는 곳 | 할 일 |
-| --- | --- | --- |
-| 카카오 (`kakao`) | developers.kakao.com → 내 애플리케이션 | 앱 키의 **REST API 키** → `KAKAO_CLIENT_ID`. 카카오 로그인 활성화, Redirect URI 등록. 보안 → Client Secret 을 만들고 활성화 → `KAKAO_SECRET`. 동의항목에서 닉네임을 켠다. 이메일은 **비즈 앱**이어야 받을 수 있다 (없으면 이메일 없이 가입된다) |
-| 구글 (`google`) | console.cloud.google.com → API 및 서비스 → 사용자 인증 정보 | OAuth 동의 화면을 만들고, OAuth 클라이언트 ID(웹 애플리케이션)를 만든다. 승인된 리디렉션 URI 에 위 주소 |
-| 네이버 (`naver`) | developers.naver.com → Application → 애플리케이션 등록 | 사용 API 「네이버 로그인」, 제공 정보에 이메일 · 별명. 서비스 URL 은 `https://<HANCHAE_DOMAIN>`, Callback URL 은 위 주소. 검수 전에는 등록한 멤버만 로그인할 수 있다 |
+카카오 · 구글 · 네이버 앱을 만드는 자세한 순서, 키 넣고 확인하기, 안 될 때: **[social-login.md](social-login.md)**
 
 ## 2. 서버 준비 (설명서 3 · 5단계)
 
