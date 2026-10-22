@@ -16,6 +16,7 @@ from django.http import HttpResponseRedirect
 
 from apps.common.access import current_sanction
 
+from .connections import take_connect_allowance
 from .social import email_is_trusted, keep_only_signup_values
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,9 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         if not email_is_trusted(sociallogin):
             return None
+        # 계정 연결은 로그인한 회원 자신에게 잇는 것이라, 이메일로 다른 회원을 찾지 않는다
+        if sociallogin.state.get("process") == AuthProcess.CONNECT:
+            return None
         for address in sociallogin.email_addresses:
             if not address.verified:
                 continue
@@ -90,14 +94,41 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         return None
 
     def pre_social_login(self, request, sociallogin):
-        """로그인만 받는다. 계정 연결(connect)은 화면이 없어 열지 않는다.
+        """로그인과, 내 정보에서 시작한 계정 연결(connect)만 받는다 (connections.py).
 
         처음 온 사람은 가입을 마무리할 때까지 세션에 머물므로, 프로필 원본을 미리 줄여 둔다.
         """
-        if sociallogin.state.get("process", AuthProcess.LOGIN) != AuthProcess.LOGIN:
+        process = sociallogin.state.get("process", AuthProcess.LOGIN)
+        if process == AuthProcess.CONNECT:
+            self._check_connect(request, sociallogin)
+            return
+        if process != AuthProcess.LOGIN:
             raise ImmediateHttpResponse(social_result("error"))
         if not sociallogin.is_existing:
             keep_only_signup_values(sociallogin)
+
+    def _check_connect(self, request, sociallogin):
+        """계정 연결: 내 정보에서 본인 확인을 마친 회원만, 아직 아무 데도 이어지지 않은 소셜 계정만 잇는다.
+
+        결과는 /me?connect=done|taken|already|has_provider|error&provider=… 로 알린다.
+        """
+        provider = sociallogin.account.provider
+        user = request.user
+
+        def result(state):
+            return ImmediateHttpResponse(HttpResponseRedirect(f"/me?connect={state}&provider={provider}"))
+
+        if not user.is_authenticated or not take_connect_allowance(request, provider):
+            raise result("error")
+        if sociallogin.is_existing:
+            raise result("already" if sociallogin.user.pk == user.pk else "taken")
+        if user.socialaccount_set.filter(provider=provider).exists():
+            raise result("has_provider")  # 같은 제공사의 다른 계정을 이미 이어 두었다
+        sociallogin.state["next"] = f"/me?connect=done&provider={provider}"
+
+    def get_connect_redirect_url(self, request, socialaccount):
+        """allauth 의 연결 관리 화면은 열지 않으므로 내 정보로."""
+        return "/me"
 
     def on_authentication_error(self, request, provider, error=None, exception=None, extra_context=None):
         """제공사에서 취소하거나 실패하면 allauth 의 오류 화면 대신 로그인 화면으로."""

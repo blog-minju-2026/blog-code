@@ -139,6 +139,17 @@ const Store = (function () {
     await Auth.refresh().catch(() => null);
   }
 
+  // 로그인 방법 (AUTH-07): { email, has_password, confirm_with, nickname,
+  // providers: [{ provider, name, enabled, connected, connected_at, can_disconnect }] }
+  const loginMethods = () => Api.get('/api/me/login-methods');
+
+  // 소셜 계정 연결 시작: 본인 확인을 마치면 서버가 10분 동안 그 제공사를 이어도 된다고 기억한다.
+  // 그다음 Auth.startSocialLogin(provider, '/me', 'connect') 로 제공사 로그인에 보낸다. 실패하면 ApiError
+  const startSocialConnect = (provider, { password, nickname }) => Api.post('/api/me/social/connect', { provider, password, nickname });
+
+  // 연결 끊기. 돌려주는 값: 바뀐 로그인 방법. 마지막 남은 방법이면 409 LAST_LOGIN_METHOD
+  const disconnectSocial = (provider) => Api.delete(`/api/me/social/${encodeURIComponent(provider)}`);
+
   async function updateMe(data) {
     const result = await Api.patch('/api/me', data);
     await Auth.refresh();
@@ -191,6 +202,9 @@ const Store = (function () {
     updateMe,
     leaveSummary,
     leave,
+    loginMethods,
+    startSocialConnect,
+    disconnectSocial,
     nicknameAvailable,
   };
 })();

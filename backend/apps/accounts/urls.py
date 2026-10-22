@@ -17,4 +17,7 @@ urlpatterns = [
     path("auth/nickname-available", views.NicknameAvailableView.as_view()),
     path("me", views.MeUpdateView.as_view()),
     path("me/leave", views.LeaveView.as_view()),
+    path("me/login-methods", views.LoginMethodsView.as_view()),
+    path("me/social/connect", views.SocialConnectView.as_view()),
+    path("me/social/<str:provider>", views.SocialDisconnectView.as_view()),
 ]

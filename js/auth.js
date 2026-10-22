@@ -110,12 +110,13 @@ const Auth = (function () {
   }
 
   // 제공사 로그인으로 보낸다. 끝나면 next 로 돌아오고, 처음 온 사람은 /login?social=signup 으로 온다.
-  // allauth 는 POST 로 들어와야 제공사로 보내므로 폼을 만들어 제출한다
-  async function startSocialLogin(provider, next) {
+  // allauth 는 POST 로 들어와야 제공사로 보내므로 폼을 만들어 제출한다.
+  // process: 'login' 또는 'connect' (내 정보에서 계정 잇기. 서버가 결과를 /me?connect=… 로 알린다)
+  async function startSocialLogin(provider, next, process = 'login') {
     const form = document.createElement('form');
     form.method = 'post';
     form.action = `/accounts/${encodeURIComponent(provider)}/login/`;
-    const fields = { csrfmiddlewaretoken: await Api.csrfToken(), process: 'login', next };
+    const fields = { csrfmiddlewaretoken: await Api.csrfToken(), process, next };
     Object.entries(fields).forEach(([name, value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
