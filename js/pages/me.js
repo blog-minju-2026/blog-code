@@ -1,6 +1,6 @@
 /**
  * 내 정보 (SCR-11) /me
- * 닉네임 · 프로필 사진(대문의 주인 사진도 이 사진) · 로그아웃 · 탈퇴.
+ * 닉네임 · 프로필 사진(대문의 주인 사진도 이 사진) · 로그인 방법(소셜 계정 잇기 · 끊기) · 로그아웃 · 탈퇴.
  * 사진은 올리거나 지우는 즉시 저장하고, 닉네임은 '저장'을 눌러 저장한다.
  */
 const form = document.getElementById('me-form');
@@ -118,6 +118,194 @@ document.getElementById('logout-button').addEventListener('click', async () => {
     alert(err.message);
   }
 });
+
+// ----- 로그인 방법 (AUTH-07): 소셜 계정 잇기 · 끊기 -----
+const EMAIL_MARK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>';
+const methodsResult = document.getElementById('methods-result');
+const connectDialog = document.getElementById('connect-dialog');
+const connectForm = document.getElementById('connect-form');
+const connectError = document.getElementById('connect-error');
+let methods = null;
+let connectProvider = null;
+
+// 제공사에서 돌아왔을 때(/me?connect=…&provider=…)와 끊었을 때의 안내. [문장, 오류인지]
+function connectMessage(state, name) {
+  return {
+    done: [`${name} 계정을 연결했어요. 이제 ${name}로도 로그인할 수 있어요.`, false],
+    already: [`이미 이 한채에 연결된 ${name} 계정이에요.`, false],
+    taken: [`이미 다른 한채 계정에 연결된 ${name} 계정이에요. 그 계정에서 먼저 연결을 끊어 주세요.`, true],
+    has_provider: [`이미 다른 ${name} 계정을 이어 두었어요. 바꾸려면 먼저 연결을 끊어 주세요.`, true],
+    error: [`${name} 계정을 연결하지 못했어요. 다시 시도해 주세요.`, true],
+    cut: [`${name} 계정 연결을 끊었어요. ${name}로는 더 이상 이 한채에 로그인할 수 없어요.`, false],
+  }[state];
+}
+
+function showMethodsResult(state, provider) {
+  const message = connectMessage(state, SOCIAL_PROVIDER_NAMES[provider] || provider);
+  if (!message) return;
+  methodsResult.textContent = message[0];
+  methodsResult.className = `methods-result ${message[1] ? 'is-error' : 'is-info'}`;
+  methodsResult.hidden = false;
+}
+
+function emailRowHTML() {
+  let detail;
+  if (!methods.email) detail = '이메일 로그인이 없어요';
+  else if (methods.has_password) detail = `연결됨 · ${escapeHTML(methods.email)}`;
+  else detail = `${escapeHTML(methods.email)} · 비밀번호를 정하면 이메일로도 로그인할 수 있어요`;
+  const on = methods.email && methods.has_password;
+  return `
+    <li class="method-row">
+      <span class="method-mark is-email" aria-hidden="true">${EMAIL_MARK}</span>
+      <span class="method-text">
+        <span class="method-name">이메일</span>
+        <span class="method-detail${on ? ' is-on' : ''}">${detail}</span>
+      </span>
+    </li>`;
+}
+
+function providerRowHTML(p) {
+  const name = escapeHTML(p.name);
+  const mark = `<span class="method-mark is-${escapeHTML(p.provider)}" aria-hidden="true">${SOCIAL_PROVIDER_MARKS[p.provider] || ''}</span>`;
+  if (!p.connected) {
+    return `
+      <li class="method-row">
+        ${mark}
+        <span class="method-text">
+          <span class="method-name">${name}</span>
+          <span class="method-detail">연결하지 않았어요</span>
+        </span>
+        <button type="button" class="btn btn-primary" data-connect="${escapeHTML(p.provider)}">연결하기</button>
+      </li>`;
+  }
+  const since = p.connected_at ? ` · ${formatDate(p.connected_at)}부터` : '';
+  const lastId = `last-${escapeHTML(p.provider)}`;
+  return `
+    <li class="method-row">
+      ${mark}
+      <span class="method-text">
+        <span class="method-name">${name}</span>
+        <span class="method-detail is-on">연결됨${since}</span>
+      </span>
+      <button type="button" class="btn btn-secondary" data-disconnect="${escapeHTML(p.provider)}"
+        ${p.can_disconnect ? '' : `disabled aria-describedby="${lastId}"`}>연결 끊기</button>
+      ${p.can_disconnect ? '' : `<span class="method-last" id="${lastId}">마지막 남은 로그인 방법이라 끊을 수 없어요. 다른 소셜 계정을 먼저 이어 주세요.</span>`}
+    </li>`;
+}
+
+function renderMethods() {
+  document.getElementById('method-list').innerHTML = emailRowHTML() + methods.providers.map(providerRowHTML).join('');
+  // 켜진 제공사도, 이어 둔 계정도 없으면 보여 줄 것이 없다
+  document.getElementById('methods').hidden = !methods.providers.length;
+}
+
+async function loadMethods() {
+  methods = await Store.loginMethods();
+  renderMethods();
+}
+
+function clearConnectErrors() {
+  connectError.textContent = '';
+  ['password', 'nickname'].forEach((name) => {
+    document.getElementById(`connect-${name}-error`).textContent = '';
+    connectForm.elements[name].removeAttribute('aria-invalid');
+  });
+}
+
+function openConnectDialog(provider) {
+  connectProvider = provider;
+  const name = SOCIAL_PROVIDER_NAMES[provider] || provider;
+  const mark = document.getElementById('connect-mark');
+  mark.className = `method-mark is-${provider}`;
+  mark.innerHTML = SOCIAL_PROVIDER_MARKS[provider] || '';
+  document.getElementById('connect-title').textContent = `${name} 계정을 연결할까요?`;
+  document.getElementById('connect-desc').textContent = `${name} 로그인 화면으로 넘어가요. 거기서 로그인하면 그 ${name} 계정으로도 이 한채에 들어올 수 있어요.`;
+  document.getElementById('connect-submit').textContent = `${name}로 계속`;
+  const byPassword = methods.confirm_with === 'password';
+  document.getElementById('connect-password-group').hidden = !byPassword;
+  document.getElementById('connect-nickname-group').hidden = byPassword;
+  document.getElementById('connect-nickname-label').innerHTML = '비밀번호가 없는 계정이라, 확인을 위해 닉네임 '
+    + `<strong>${escapeHTML(methods.nickname)}</strong>${objectParticle(methods.nickname)} 그대로 적어 주세요.`;
+  connectForm.reset();
+  clearConnectErrors();
+  document.getElementById('connect-submit').disabled = false;
+  connectDialog.showModal();
+  connectForm.elements[byPassword ? 'password' : 'nickname'].focus();
+}
+
+document.getElementById('method-list').addEventListener('click', async (e) => {
+  const connect = e.target.closest('[data-connect]');
+  if (connect) {
+    openConnectDialog(connect.dataset.connect);
+    return;
+  }
+  const cut = e.target.closest('[data-disconnect]');
+  if (!cut) return;
+  const provider = cut.dataset.disconnect;
+  const name = SOCIAL_PROVIDER_NAMES[provider] || provider;
+  const ok = await confirmDialog({
+    title: `${name} 계정 연결을 끊을까요?`,
+    text: `끊으면 ${name}로는 이 한채에 로그인할 수 없어요. 나중에 다시 이을 수 있어요.`,
+    confirmLabel: '연결 끊기',
+    danger: true,
+  });
+  if (!ok) return;
+  cut.disabled = true;
+  try {
+    methods = await Store.disconnectSocial(provider);
+    renderMethods();
+    showMethodsResult('cut', provider);
+  } catch (err) {
+    methodsResult.textContent = err.firstMessage || err.message;
+    methodsResult.className = 'methods-result is-error';
+    methodsResult.hidden = false;
+    cut.disabled = false;
+  }
+});
+
+document.getElementById('connect-cancel').addEventListener('click', () => connectDialog.close());
+connectDialog.addEventListener('click', (e) => {
+  if (e.target === connectDialog) connectDialog.close(); // 바깥을 누르면 닫는다
+});
+
+connectForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearConnectErrors();
+  const field = methods.confirm_with === 'password' ? 'password' : 'nickname';
+  const value = connectForm.elements[field].value;
+  if (!value.trim()) {
+    document.getElementById(`connect-${field}-error`).textContent = field === 'password' ? '비밀번호를 입력해 주세요.' : '닉네임을 적어 주세요.';
+    connectForm.elements[field].setAttribute('aria-invalid', 'true');
+    connectForm.elements[field].focus();
+    return;
+  }
+  const submit = document.getElementById('connect-submit');
+  submit.disabled = true;
+  try {
+    await Store.startSocialConnect(connectProvider, field === 'password' ? { password: value } : { nickname: value.trim() });
+    // 본인 확인을 마쳤으니 제공사 로그인으로. 결과는 /me?connect=… 로 돌아와 알린다
+    await Auth.startSocialLogin(connectProvider, '/me', 'connect');
+  } catch (err) {
+    const bad = ['password', 'nickname'].find((name) => err.fields && err.fields[name]);
+    if (bad) {
+      document.getElementById(`connect-${bad}-error`).textContent = err.fields[bad];
+      connectForm.elements[bad].setAttribute('aria-invalid', 'true');
+      connectForm.elements[bad].focus();
+    } else {
+      connectError.textContent = err.firstMessage || err.message;
+    }
+    submit.disabled = false;
+  }
+});
+
+// 제공사에서 돌아왔으면 결과를 한 번 알리고, 새로고침해도 다시 뜨지 않게 주소에서 뺀다
+function showConnectResultFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const state = params.get('connect');
+  if (!state) return;
+  showMethodsResult(state, params.get('provider') || '');
+  history.replaceState(null, '', location.pathname);
+}
 
 // ----- 탈퇴 (AUTH-06): 사라지는 것 · 남는 것을 보여 주고 비밀번호(없으면 닉네임)로 확인한다 -----
 const leaveDialog = document.getElementById('leave-dialog');
@@ -282,6 +470,9 @@ async function main() {
   document.getElementById('email-verified').hidden = !me.email;
   if (!me.email) document.getElementById('email-hint').textContent = '소셜 계정으로 가입해 이메일 없이 로그인해요.';
   renderPhoto();
+  // 로그인 방법을 불러오지 못해도 내 정보 화면은 그대로 쓴다 (그 칸만 숨긴다)
+  await loadMethods().catch(() => {});
+  if (methods) showConnectResultFromUrl();
   await renderMyHouse();
   document.getElementById('house').hidden = false;
 }

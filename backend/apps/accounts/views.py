@@ -52,6 +52,7 @@ from .serializers import (
     check_new_password,
     me_payload,
 )
+from .connections import allow_connect, can_disconnect, login_methods
 from .social import email_is_trusted, pending_signup_payload, verified_email
 from .withdrawal import leave_summary, withdraw
 
@@ -445,6 +446,22 @@ class MeUpdateView(APIView):
         return Response({"user": me_payload(user, request)})
 
 
+def confirm_identity(user, data):
+    """탈퇴 · 계정 연결 전 본인 확인: 비밀번호가 있으면 비밀번호, 없으면(소셜로만 가입) 닉네임을 그대로.
+
+    비밀번호를 여러 번 틀리면 로그인처럼 잠시 막는다 (이메일이 없으면 회원 번호로 센다).
+    """
+    if user.has_usable_password():
+        lock_key = user.email or f"user-{user.pk}"
+        attempts.ensure_not_locked(lock_key)
+        if not user.check_password(data.get("password") or ""):
+            attempts.record_failure(lock_key)
+            raise APIError(400, "VALIDATION_ERROR", "비밀번호가 맞지 않아요.", fields={"password": "비밀번호가 맞지 않아요."})
+        attempts.clear(lock_key)
+    elif (data.get("nickname") or "").strip() != user.nickname:
+        raise APIError(400, "VALIDATION_ERROR", "닉네임이 맞지 않아요.", fields={"nickname": "닉네임이 맞지 않아요."})
+
+
 ADMIN_CANNOT_LEAVE = "마을 관리인은 탈퇴할 수 없어요. 다른 관리인에게 역할을 넘긴 뒤 탈퇴해 주세요."
 
 
@@ -470,16 +487,55 @@ class LeaveView(EnforceCsrfMixin, APIView):
         if user.role == User.Role.ADMIN:
             raise APIError(403, "FORBIDDEN", ADMIN_CANNOT_LEAVE)
 
-        if user.has_usable_password():
-            # 비밀번호를 여러 번 틀리면 로그인처럼 잠시 막는다 (이메일이 없으면 회원 번호로 센다)
-            lock_key = user.email or f"user-{user.pk}"
-            attempts.ensure_not_locked(lock_key)
-            if not user.check_password(data.get("password") or ""):
-                attempts.record_failure(lock_key)
-                raise APIError(400, "VALIDATION_ERROR", "비밀번호가 맞지 않아요.", fields={"password": "비밀번호가 맞지 않아요."})
-        elif (data.get("nickname") or "") != user.nickname:
-            raise APIError(400, "VALIDATION_ERROR", "닉네임이 맞지 않아요.", fields={"nickname": "닉네임이 맞지 않아요."})
-
+        confirm_identity(user, data)
         withdraw(user)
         logout(request)
         return Response({"left": True})
+
+
+class LoginMethodsView(APIView):
+    """GET /api/me/login-methods — 내 로그인 방법: 이메일 · 비밀번호, 제공사마다 연결 여부와 끊을 수 있는지 (AUTH-07)."""
+
+    permission_classes = [IsMember]
+
+    def get(self, request):
+        return Response(login_methods(request.user))
+
+
+class SocialConnectView(EnforceCsrfMixin, APIView):
+    """POST /api/me/social/connect — 소셜 계정 연결을 시작한다 (AUTH-07).
+
+    본인 확인(비밀번호 / 닉네임)을 마치면 그 제공사를 10분 안에 한 번 이어도 된다고 세션에 적는다.
+    화면은 이어서 /accounts/<제공사>/login/ 으로 process=connect 를 보낸다. 실제로 잇는 것은 adapter.py
+    """
+
+    permission_classes = [IsMember]
+    throttle_scope = "login"
+
+    def post(self, request):
+        user = request.user
+        provider = request.data.get("provider")
+        if provider not in settings.SOCIAL_PROVIDERS:
+            raise APIError(400, "VALIDATION_ERROR", "연결할 수 없는 제공사예요.", fields={"provider": "연결할 수 없는 제공사예요."})
+        if user.socialaccount_set.filter(provider=provider).exists():
+            raise APIError(409, "CONFLICT", "이미 이어 둔 계정이 있어요. 다른 계정으로 바꾸려면 먼저 연결을 끊어 주세요.")
+        confirm_identity(user, request.data)
+        allow_connect(request, provider)
+        return Response({"provider": provider})
+
+
+class SocialDisconnectView(EnforceCsrfMixin, APIView):
+    """DELETE /api/me/social/{provider} — 소셜 계정 연결 끊기 (AUTH-07). 마지막 남은 로그인 방법은 끊지 않는다."""
+
+    permission_classes = [IsMember]
+
+    def delete(self, request, provider):
+        user = request.user
+        account = user.socialaccount_set.filter(provider=provider).first()
+        if account is None:
+            raise APIError(404, "NOT_FOUND", "이어 둔 계정이 없어요.")
+        if not can_disconnect(user, account):
+            raise APIError(409, "LAST_LOGIN_METHOD", "마지막 남은 로그인 방법이라 끊을 수 없어요. 다른 소셜 계정을 먼저 이어 주세요.")
+        account.delete()
+        return Response(login_methods(user))
+

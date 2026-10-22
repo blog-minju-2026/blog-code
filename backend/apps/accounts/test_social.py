@@ -216,9 +216,10 @@ class SocialLoginBlockedTests(APITestCase):
         self.assertEqual(res["Location"], "/login?social=inactive")
         self.assertIsNone(self.client.get("/api/auth/me").json()["user"])
 
-    def test_connect_process_is_closed(self):
+    def test_connect_without_login_is_refused(self):
+        # 계정 연결은 내 정보에서 본인 확인을 마친 회원만 (test_connect.py)
         res = come_back_from_provider(self.client, kakao_login(), process="connect")
-        self.assertEqual(res["Location"], "/login?social=error")
+        self.assertEqual(res["Location"], "/me?connect=error&provider=kakao")
 
 
 @social_settings

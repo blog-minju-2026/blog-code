@@ -92,6 +92,44 @@
           </div>
         </form>
 
+        <!-- 로그인 방법 (AUTH-07): 소셜 계정을 잇고 끊는다. 줄은 me.js 가 GET /api/me/login-methods 로 그린다 -->
+        <section class="card methods-box" aria-labelledby="methods-title" id="methods" hidden>
+          <div class="methods-head">
+            <h2 id="methods-title">로그인 방법</h2>
+            <span>이어 둔 방법이면 어느 것으로 로그인해도 같은 한채로 들어와요. 소셜 계정의 이메일이 한채 이메일과 달라도 이을 수 있어요.</span>
+          </div>
+          <p class="methods-result" id="methods-result" role="status" hidden></p>
+          <ul class="method-list" id="method-list"></ul>
+          <span class="field-hint">마지막 남은 로그인 방법은 끊을 수 없어요. 한 소셜 계정은 한채 계정 하나에만 이을 수 있어요.</span>
+        </section>
+
+        <!-- 계정 연결 전 본인 확인 -->
+        <dialog class="hc-dialog connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
+          <form id="connect-form" method="dialog" novalidate>
+            <div class="connect-dialog-head">
+              <span class="method-mark" id="connect-mark" aria-hidden="true"></span>
+              <h2 id="connect-title"></h2>
+            </div>
+            <p id="connect-desc"></p>
+            <div class="field-group" id="connect-password-group">
+              <label for="connect-password">비밀번호 <span class="field-hint">본인인지 확인할게요</span></label>
+              <input class="input" id="connect-password" name="password" type="password" autocomplete="current-password" aria-describedby="connect-password-error">
+              <span class="field-status is-bad" id="connect-password-error" role="alert"></span>
+            </div>
+            <div class="field-group" id="connect-nickname-group" hidden>
+              <label for="connect-nickname" id="connect-nickname-label"></label>
+              <input class="input" id="connect-nickname" name="nickname" type="text" autocomplete="off" aria-describedby="connect-nickname-error">
+              <span class="field-status is-bad" id="connect-nickname-error" role="alert"></span>
+            </div>
+            <p class="connect-why">로그인된 기기를 다른 사람이 잠깐 쓰면서 자기 계정을 이어 두지 못하게 한 번 더 확인해요.</p>
+            <p class="form-error-line" id="connect-error" role="alert"></p>
+            <div class="hc-dialog-actions">
+              <button type="button" class="btn btn-secondary" id="connect-cancel">취소</button>
+              <button type="submit" class="btn btn-primary" id="connect-submit"></button>
+            </div>
+          </form>
+        </dialog>
+
         <section class="card account-box" aria-labelledby="logout-title">
           <div>
             <h2 id="logout-title">로그아웃</h2>
