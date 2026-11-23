@@ -50,7 +50,7 @@ jobs:
           USE_HTTPS: ${{ secrets.USE_HTTPS }}
           APP_PORT: ${{ secrets.APP_PORT }}
           APP_PORT_2: ${{ secrets.APP_PORT_2 }}
-          # 컨테이너가 받는 주소. 비워 두면 127.0.0.1 (같은 서버의 nginx 만 닿는다, deploy.sh)
+          # 컨테이너가 받는 주소. 비워 두면 0.0.0.0 (deploy.sh). 학교 서버에서는 비워 둔다
           BIND_HOST: ${{ secrets.BIND_HOST }}
           DB_ADDRESS: ${{ secrets.DB_ADDRESS }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -118,3 +118,26 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT }}
           script: bash ~/hanchae/deploy.sh
+
+      # deploy.sh 는 서버 안에서 127.0.0.1:포트 로만 확인한다. nginx 를 거쳐 실제 주소로도 열리는지 밖에서 한 번 더 본다.
+      # (서버 안의 확인은 통과했는데 사이트는 502 였던 적이 있다. 그때 배포는 성공으로 표시됐다)
+      - name: 사이트가 밖에서 열리는지 확인
+        env:
+          HANCHAE_DOMAIN: ${{ secrets.HANCHAE_DOMAIN }}
+          USE_HTTPS: ${{ secrets.USE_HTTPS }}
+        run: |
+          scheme=http
+          if [ "${USE_HTTPS:-0}" = "1" ]; then scheme=https; fi
+          for path in / /api/topics; do
+            code=000
+            for i in $(seq 1 10); do
+              code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$scheme://$HANCHAE_DOMAIN$path" || true)"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 3
+            done
+            if [ "$code" != "200" ]; then
+              echo "::error::배포는 끝났지만 사이트의 $path 가 밖에서 $code 로 답해요. deploy/README.md 의 '502 가 뜰 때' 를 보세요"
+              exit 1
+            fi
+            echo "$path → 200"
+          done

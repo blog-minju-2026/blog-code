@@ -39,7 +39,7 @@
 | `EMAIL_HOST_USER` | 인증 메일을 보낼 한채 전용 Gmail 주소 (예: `hanchae.blog@gmail.com`) | 직접 |
 | `EMAIL_HOST_PASSWORD` | 그 Gmail 의 **앱 비밀번호** 16자리 (계정 비밀번호가 아님). Google 계정 → 보안 → 2단계 인증을 켠 뒤 '앱 비밀번호'에서 만든다 | 직접 |
 | `ADMIN_EMAILS` | (선택) 서버 오류(500) 알림 메일을 받을 주소. 쉼표로 여럿. 비워 두면 `EMAIL_HOST_USER` 로 간다 | 직접 |
-| `BIND_HOST` | (보통 비워 둔다) 컨테이너가 요청을 받는 주소. 비우면 `127.0.0.1` 이라 같은 서버의 nginx 만 닿는다. nginx 가 다른 서버에 있을 때만 `0.0.0.0` | 직접 |
+| `BIND_HOST` | (비워 둔다) 컨테이너가 요청을 받는 주소. 비우면 `0.0.0.0`. **학교 서버에서는 `127.0.0.1` 로 좁히면 502 가 난다** | 직접 |
 | `KAKAO_CLIENT_ID` · `KAKAO_SECRET` | (소셜 로그인, 넣고 싶을 때만) 카카오 앱의 REST API 키 · 클라이언트 시크릿 | [social-login.md](social-login.md) |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_SECRET` | 〃 Google OAuth 클라이언트 ID · 보안 비밀 | 〃 |
 | `NAVER_CLIENT_ID` · `NAVER_SECRET` | 〃 네이버 애플리케이션의 Client ID · Client Secret | 〃 |
@@ -90,7 +90,9 @@ vi ~/nginx/hanchae.java21.net.conf      # 파일 이름 = 받은 도메인 + .co
 
 컨테이너는 서버의 네트워크를 그대로 쓰는 방식(`--network host`)으로 떠서 `APP_PORT` · `APP_PORT_2` 에서 바로 요청을 받는다. 학교 서버에서는 Docker 기본 네트워크에서 학교 내부망의 DB 로 가는 길이 막혀 있기 때문이다.
 
-컨테이너는 `127.0.0.1` 에서만 받는다 (`deploy.sh` 의 `BIND_HOST`). 그래서 **upstream 의 주소는 꼭 `127.0.0.1:<포트>`** 여야 한다. 밖에서 `서버주소:포트` 로 바로 들어오면 nginx 를 건너뛰어 접속 주소(`X-Forwarded-For`)를 꾸밀 수 있고, 그러면 요청 횟수 제한을 피할 수 있기 때문이다. 배포 뒤 사이트가 502 로 뜨면 `cat ~/nginx/<도메인>.conf` 의 upstream 주소를 먼저 확인한다 (다른 주소로 붙어야 하는 서버라면 Secret `BIND_HOST` 에 `0.0.0.0`).
+컨테이너는 모든 주소(`0.0.0.0`)에서 받는다 (`deploy.sh` 의 `BIND_HOST`). `127.0.0.1` 로 좁히면 밖에서 `서버주소:포트` 로 바로 들어와 nginx 를 건너뛰는 길(접속 주소 `X-Forwarded-For` 를 꾸며 요청 횟수 제한을 피할 수 있다)을 막을 수 있지만, **이 서버에서는 그렇게 하면 공용 nginx 도 닿지 못해 사이트가 502 가 된다** (2026-11-23 에 겪었다. 설정에 `127.0.0.1:<포트>` 라고 적혀 있어도 컨테이너에는 다른 주소로 들어온다).
+
+**502 가 뜰 때**: 배포의 마지막 단계 "사이트가 밖에서 열리는지 확인" 이 이것을 잡는다. ① Secret `BIND_HOST` 가 들어 있으면 지우거나 `0.0.0.0` 으로 바꾸고 Actions → deploy → Run workflow, ② 서버에서 `docker ps` 로 두 컨테이너가 떠 있는지, ③ `cat ~/nginx/<도메인>.conf` 의 upstream 포트가 `APP_PORT` · `APP_PORT_2` 와 같은지 본다.
 
 ## 3. 첫 배포
 
