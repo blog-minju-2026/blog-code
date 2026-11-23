@@ -1,4 +1,4 @@
-# 한채 백업 · 정리 (하루 한 번)
+# 한채 백업 · 정리 (하루 한 번). 백업은 2026-12-23(개인정보 처리방침 시행일)부터 한다
 # 1) 서버에서 ~/hanchae/backup.sh 를 부른다: DB 를 통째로 뜨고 사진을 ~/hanchae-backups 로 복사한다 (deploy/backup.sh).
 # 2) 서버의 1번 컨테이너 안에서 python manage.py run_maintenance 를 부른다.
 #    쓰이지 않는 사진 · 인증 안 마친 가입 · 끝난 세션 · 오래된 조회 기록을 지운다 (backend/apps/posts/management/commands/run_maintenance.py).
@@ -25,8 +25,23 @@ jobs:
   maintenance:
     runs-on: ubuntu-latest
     steps:
+      # 백업에는 지운 정보가 최대 14일 남는다. 개인정보 처리방침에 그 내용을 더했고, 그 시행일부터 백업한다
+      # (privacy.html 11장의 시행일과 같은 날이어야 한다. 그 전에는 서버에서 손으로도 backup.sh 를 돌리지 않는다)
+      - name: 백업을 시작한 날인지 보기
+        id: backup
+        env:
+          BACKUP_FROM: "2026-12-23"
+        run: |
+          today="$(TZ=Asia/Seoul date +%Y-%m-%d)"
+          if [[ "$today" < "$BACKUP_FROM" ]]; then
+            echo "백업은 $BACKUP_FROM 부터 해요 (개인정보 처리방침 시행일). 오늘은 정리만 해요."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 서버에서 백업하기
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.backup.outputs.run == 'true' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_ADDRESS }}

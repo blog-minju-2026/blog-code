@@ -140,6 +140,8 @@ docker exec -it hanchae-backend-1 python manage.py createsuperuser
 
 `deploy/backup.sh` 가 서버의 `~/hanchae-backups` 에 둔다 (배포할 때 `~/hanchae/backup.sh` 로 함께 올라간다).
 
+**백업은 2026년 12월 23일부터 한다.** 백업에는 지운 정보가 최대 14일 남으므로 개인정보 처리방침을 고쳤고(4장 · 11장), 회원에게 불리할 수 있는 변경이라 방침대로 30일 전(11월 23일)에 알렸다. `maintenance.yml` 의 `BACKUP_FROM` 이 그 시행일이고, 그 전에는 정리만 한다. 그 전에는 서버에서 손으로도 `backup.sh` 를 돌리지 않는다. PR 을 11월 23일보다 늦게 합치면 처리방침의 '알린 날 · 시행일', 릴리즈 노트의 날짜, `BACKUP_FROM` 을 함께 미룬다 (알린 날 + 30일).
+
 | 무엇 | 어디에 | 얼마나 |
 | --- | --- | --- |
 | DB 전체 (`mysqldump`, 컨테이너 안에서 뜬다) | `db-날짜-시각.sql.gz` | 14일치 |
