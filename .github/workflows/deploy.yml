@@ -1,5 +1,5 @@
 # 한채 배포 (서버 배포 설명서 4단계)
-# main 에 백엔드 · 화면 · 배포 파일이 바뀌어 올라오면 Docker 이미지를 만들어 서버로 보내고, SSH 로 접속해 실행한다.
+# main 에 백엔드 · 화면 · 배포 파일이 바뀌어 올라오면 테스트를 돌리고, 통과하면 Docker 이미지를 만들어 서버로 보내고, SSH 로 접속해 실행한다.
 # 필요한 값은 모두 GitHub 저장소 Settings → Secrets and variables → Actions → Repository secrets 에 넣는다 (deploy/README.md).
 name: deploy
 
@@ -16,6 +16,7 @@ on:
       - ".dockerignore"
       - "deploy/**"
       - ".github/workflows/deploy.yml"
+      - ".github/workflows/test.yml"
   workflow_dispatch:
 
 concurrency:
@@ -23,7 +24,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 테스트가 통과해야 서버로 보낸다 (.github/workflows/test.yml)
+  test:
+    uses: ./.github/workflows/test.yml
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +41,7 @@ jobs:
         run: |
           mkdir -p bundle
           docker save hanchae-backend:latest | gzip > bundle/hanchae-backend.tar.gz
-          cp deploy/deploy.sh bundle/deploy.sh
+          cp deploy/deploy.sh deploy/backup.sh bundle/
 
       - name: 서버에서 쓸 환경 변수 파일 만들기
         env:
@@ -44,6 +50,8 @@ jobs:
           USE_HTTPS: ${{ secrets.USE_HTTPS }}
           APP_PORT: ${{ secrets.APP_PORT }}
           APP_PORT_2: ${{ secrets.APP_PORT_2 }}
+          # 컨테이너가 받는 주소. 비워 두면 127.0.0.1 (같은 서버의 nginx 만 닿는다, deploy.sh)
+          BIND_HOST: ${{ secrets.BIND_HOST }}
           DB_ADDRESS: ${{ secrets.DB_ADDRESS }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -52,6 +60,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
           EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
+          # 서버 오류(500)를 메일로 받을 주소. 쉼표로 여럿. 비워 두면 EMAIL_HOST_USER 로 간다
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
           # 소셜 로그인: 앱 키를 넣은 제공사만 켜진다 (비워 두면 그 버튼이 보이지 않는다)
           KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
           KAKAO_SECRET: ${{ secrets.KAKAO_SECRET }}
@@ -67,6 +77,7 @@ jobs:
             printf 'USE_HTTPS=%s\n' "${USE_HTTPS:-0}"
             printf 'APP_PORT=%s\n' "$APP_PORT"
             printf 'APP_PORT_2=%s\n' "$APP_PORT_2"
+            printf 'BIND_HOST=%s\n' "$BIND_HOST"
             printf 'DB_ADDRESS=%s\n' "$DB_ADDRESS"
             printf 'DB_PORT=%s\n' "$DB_PORT"
             printf 'DB_NAME=%s\n' "$DB_NAME"
@@ -74,6 +85,7 @@ jobs:
             printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
             printf 'EMAIL_HOST_USER=%s\n' "$EMAIL_HOST_USER"
             printf 'EMAIL_HOST_PASSWORD=%s\n' "$EMAIL_HOST_PASSWORD"
+            printf 'ADMIN_EMAILS=%s\n' "$ADMIN_EMAILS"
             for name in KAKAO_CLIENT_ID KAKAO_SECRET GOOGLE_CLIENT_ID GOOGLE_SECRET NAVER_CLIENT_ID NAVER_SECRET; do
               printf '%s=%s\n' "$name" "${!name}"
             done

@@ -16,6 +16,8 @@ if [ -z "$APP_PORT" ] || [ -z "$APP_PORT_2" ]; then
   echo "APP_PORT 또는 APP_PORT_2 가 비어 있어요. GitHub Secrets 를 확인하세요." >&2
   exit 1
 fi
+BIND_HOST="$(grep '^BIND_HOST=' hanchae.env | cut -d= -f2- || true)"
+BIND_HOST="${BIND_HOST:-127.0.0.1}"
 if [ "$APP_PORT" = "$APP_PORT_2" ]; then
   echo "APP_PORT 와 APP_PORT_2 가 같아요. 서로 다른 번호를 넣으세요." >&2
   exit 1
@@ -31,6 +33,9 @@ replace() {
   # 호스트 네트워크로 띄운다. 학교 서버에서는 Docker 기본 네트워크(bridge)에서
   # 학교 내부망의 DB(10.116.x)로 가는 길이 막혀 있다 (No route to host). 서버 자신은 DB 에 닿는다.
   # 그래서 -p 대신 컨테이너가 서버의 포트에서 바로 받는다.
+  # 받는 주소는 127.0.0.1 로 좁힌다. 같은 서버의 nginx(upstream 127.0.0.1:포트)만 닿고, 밖에서 포트로 바로
+  # 들어와 nginx 를 건너뛰지 못한다 (건너뛰면 X-Forwarded-For 를 꾸며 요청 횟수 제한을 피할 수 있다).
+  # nginx 가 다른 주소로 붙는 서버라면 hanchae.env 에 BIND_HOST 를 넣어 바꾼다 (GitHub Secret BIND_HOST).
   # 사진 폴더는 두 컨테이너가 같은 곳을 쓴다.
   docker run -d \
     --name "$name" \
@@ -38,6 +43,7 @@ replace() {
     --network host \
     --env-file "$APP_DIR/hanchae.env" \
     -e PORT="$port" \
+    -e BIND_HOST="$BIND_HOST" \
     -v "$APP_DIR/media:/app/media" \
     "$IMAGE" >/dev/null
 

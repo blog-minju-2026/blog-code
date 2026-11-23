@@ -1,0 +1,59 @@
+# 한채 테스트
+# PR 을 올리거나 고칠 때마다 돌고, 배포(deploy.yml)도 서버로 보내기 전에 이 테스트를 먼저 부른다. 실패하면 배포하지 않는다.
+# 학교 서버와 같은 MySQL 8.0.41 을 띄워 backend 의 테스트를 모두 돌린다 (노트북에서는 backend/README.md 의 `python manage.py test apps`).
+name: test
+
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0.41
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only
+          MYSQL_DATABASE: hanchae
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-only --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-secret
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: hanchae
+      # 테스트 DB(test_hanchae)를 만들고 지워야 해서 root 로 붙는다. 이 DB 는 이 작업이 끝나면 사라진다
+      DB_USER: root
+      DB_PASSWORD: ci-only
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # Dockerfile 과 같은 버전
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: mysqlclient 를 빌드할 라이브러리
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev pkg-config
+
+      - name: 패키지 설치
+        run: pip install -r backend/requirements.txt
+
+      - name: 설정 · 마이그레이션 확인
+        working-directory: backend
+        run: |
+          python manage.py check
+          # 모델을 바꾸고 마이그레이션을 빠뜨렸으면 여기서 멈춘다
+          python manage.py makemigrations --check --dry-run
+
+      - name: 테스트
+        working-directory: backend
+        run: python manage.py test apps --noinput
