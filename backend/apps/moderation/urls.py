@@ -10,6 +10,7 @@ urlpatterns = [
     path("admin/posts/<int:post_id>", views.PostDetailView.as_view()),
     path("admin/comments", views.CommentsView.as_view()),
     path("admin/guestbook", views.GuestbookView.as_view()),
+    path("admin/logs", views.LogsView.as_view()),
 ]
 
 for name, target in [("posts", "post"), ("comments", "comment"), ("guestbook", "guestbook")]:

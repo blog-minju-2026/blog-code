@@ -15,7 +15,7 @@ from allauth.socialaccount.internal.flows.signup import (
     get_pending_signup,
 )
 from django.conf import settings
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
@@ -33,7 +33,7 @@ from rest_framework.views import APIView
 from apps.common.access import current_sanction
 from apps.common.errors import APIError
 from apps.common.permissions import EnforceCsrfMixin, IsMember
-from apps.posts.images import get_own_image
+from apps.posts.images import get_own_image, profile_file_name
 
 from . import attempts
 from .adapter import SOCIAL_BLOCKED_SESSION_KEY
@@ -45,6 +45,7 @@ from .serializers import (
     LoginSerializer,
     MeUpdateSerializer,
     NicknameField,
+    PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     LeaveSerializer,
     SignupSerializer,
@@ -438,7 +439,7 @@ class MeUpdateView(APIView):
             user.nickname = data["nickname"]
         if "profile_image_id" in data:
             image_id = data["profile_image_id"]
-            user.profile_image = get_own_image(image_id, user).file.name if image_id is not None else None
+            user.profile_image = profile_file_name(get_own_image(image_id, user)) if image_id is not None else None
         try:
             user.save()
         except IntegrityError:
@@ -460,6 +461,47 @@ def confirm_identity(user, data):
         attempts.clear(lock_key)
     elif (data.get("nickname") or "").strip() != user.nickname:
         raise APIError(400, "VALIDATION_ERROR", "닉네임이 맞지 않아요.", fields={"nickname": "닉네임이 맞지 않아요."})
+
+
+class PasswordChangeView(EnforceCsrfMixin, APIView):
+    """POST /api/me/password — 로그인한 채로 비밀번호를 바꾼다 (AUTH-08).
+
+    지금 비밀번호가 맞아야 한다 (자리를 비운 사이 남이 바꾸지 못하게). 여러 번 틀리면 로그인처럼 잠시 막는다.
+    바꾸면 이 기기의 로그인은 그대로 두고 다른 기기의 로그인은 끊는다 (세션이 비밀번호 해시를 확인한다).
+    비밀번호가 없는 회원(소셜로만 가입)은 비밀번호 재설정 메일로 처음 정한다 (PasswordResetView).
+    """
+
+    permission_classes = [IsMember]
+    throttle_scope = "login"
+
+    def post(self, request):
+        user = request.user
+        if not user.has_usable_password():
+            raise APIError(409, "NO_PASSWORD", "비밀번호가 없는 계정이에요. 비밀번호 재설정 메일로 먼저 정해 주세요.")
+        serializer = PasswordChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        lock_key = user.email or f"user-{user.pk}"
+        attempts.ensure_not_locked(lock_key)
+        if not user.check_password(data["current_password"]):
+            attempts.record_failure(lock_key)
+            raise APIError(
+                400, "VALIDATION_ERROR", "지금 비밀번호가 맞지 않아요.", fields={"current_password": "지금 비밀번호가 맞지 않아요."}
+            )
+        attempts.clear(lock_key)
+
+        if data["new_password"] == data["current_password"]:
+            raise ValidationError({"new_password": "지금 비밀번호와 다른 비밀번호를 써 주세요."})
+        try:
+            check_new_password(data["new_password"], user)
+        except ValidationError as e:
+            raise ValidationError({"new_password": e.detail})
+
+        user.set_password(data["new_password"])
+        user.save(update_fields=["password", "updated_at"])
+        update_session_auth_hash(request, user)  # 이 기기는 로그인한 채로 둔다
+        return Response({"changed": True})
 
 
 ADMIN_CANNOT_LEAVE = "마을 관리인은 탈퇴할 수 없어요. 다른 관리인에게 역할을 넘긴 뒤 탈퇴해 주세요."

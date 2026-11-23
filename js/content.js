@@ -24,8 +24,10 @@ const REMOVE_WITH_CONTENT = ['script', 'style', 'iframe', 'object', 'embed', 'fo
 const ALLOWED_STYLES = ['color', 'background-color', 'text-align'];
 
 function isSafeLink(url) {
-  // http(s), mailto, 또는 같은 사이트 안의 상대 경로만 허용
-  return /^(https?:|mailto:)/i.test(url) || !/^[a-z][a-z0-9+.-]*:/i.test(url);
+  // http(s), mailto, 또는 같은 사이트 안의 상대 경로만 허용.
+  // 브라우저는 주소 안의 탭 · 줄바꿈 · 앞쪽 제어 문자를 빼고 읽는다 ('java\tscript:' 도 javascript: 다). 같은 눈으로 본다
+  const seen = String(url).replace(/[\u0000-\u0020]+/g, '');
+  return /^(https?:|mailto:)/i.test(seen) || !/^[a-z][a-z0-9+.-]*:/i.test(seen);
 }
 
 // 우리 서버에 올린 사진(/media/...)만. 다른 사이트 사진은 읽는 사람의 접속 정보를 흘린다

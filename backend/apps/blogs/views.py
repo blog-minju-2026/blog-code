@@ -9,7 +9,7 @@ from apps.common.access import get_visible_blog_or_404, visible_posts
 from apps.common.errors import APIError
 from apps.common.permissions import IsMember
 from apps.community.models import Subscription
-from apps.posts.images import get_own_image
+from apps.posts.images import get_own_image, profile_file_name
 
 from apps.common.storage import delete_files
 from apps.posts.views import owned_blog
@@ -82,7 +82,7 @@ class BlogDetailView(APIView):
                 setattr(blog, field, data[field])
         if "profile_image_id" in data:
             image_id = data["profile_image_id"]
-            blog.profile_image = get_own_image(image_id, request.user).file.name if image_id is not None else None
+            blog.profile_image = profile_file_name(get_own_image(image_id, request.user)) if image_id is not None else None
         blog.save()
         return Response(blog_detail(blog, request))
 

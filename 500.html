@@ -36,7 +36,8 @@
       <p>서버에 문제가 생겨 화면을 열지 못했어요. 잠시 뒤 다시 들어와 주세요.</p>
       <div class="lost-actions">
         <a class="btn btn-primary" href="/">마을로 돌아가기</a>
-        <button type="button" class="btn btn-secondary" onclick="location.reload()">다시 불러오기</button>
+        <!-- href="" 는 지금 주소를 다시 연다. 인라인 코드(onclick)는 보안 헤더(CSP)가 막으므로 쓰지 않는다 -->
+        <a class="btn btn-secondary" href="">다시 불러오기</a>
       </div>
     </div>
   </main>

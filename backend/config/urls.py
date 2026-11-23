@@ -48,5 +48,6 @@ if settings.SERVE_MEDIA:
 urlpatterns += [re_path(r"^(?!api/|django-admin|accounts|media/)(?P<path>.*)$", frontend)]
 
 # 없는 주소 · 서버 오류도 한채 모양으로 (DEBUG=0 일 때 쓰인다)
+handler400 = "config.frontend.bad_request"
 handler404 = "config.frontend.not_found"
 handler500 = "config.frontend.server_error"

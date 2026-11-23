@@ -1,6 +1,6 @@
 /**
  * 내 정보 (SCR-11) /me
- * 닉네임 · 프로필 사진(대문의 주인 사진도 이 사진) · 로그인 방법(소셜 계정 잇기 · 끊기) · 로그아웃 · 탈퇴.
+ * 닉네임 · 프로필 사진(대문의 주인 사진도 이 사진) · 로그인 방법(비밀번호 바꾸기, 소셜 계정 잇기 · 끊기) · 로그아웃 · 탈퇴.
  * 사진은 올리거나 지우는 즉시 저장하고, 닉네임은 '저장'을 눌러 저장한다.
  */
 const form = document.getElementById('me-form');
@@ -150,9 +150,17 @@ function showMethodsResult(state, provider) {
 
 function emailRowHTML() {
   let detail;
-  if (!methods.email) detail = '이메일 로그인이 없어요';
-  else if (methods.has_password) detail = `연결됨 · ${escapeHTML(methods.email)}`;
-  else detail = `${escapeHTML(methods.email)} · 비밀번호를 정하면 이메일로도 로그인할 수 있어요`;
+  let action = '';
+  if (!methods.email) {
+    detail = '이메일 로그인이 없어요';
+  } else if (methods.has_password) {
+    detail = `연결됨 · ${escapeHTML(methods.email)}`;
+    action = '<button type="button" class="btn btn-secondary" data-password="change">비밀번호 바꾸기</button>';
+  } else {
+    // 소셜로만 가입해 비밀번호가 없다. 메일의 링크로 처음 정한다 (그 메일의 주인인지도 함께 확인된다)
+    detail = `${escapeHTML(methods.email)} · 비밀번호를 정하면 이메일로도 로그인할 수 있어요`;
+    action = '<button type="button" class="btn btn-secondary" data-password="mail">비밀번호 정하기 메일 받기</button>';
+  }
   const on = methods.email && methods.has_password;
   return `
     <li class="method-row">
@@ -161,6 +169,7 @@ function emailRowHTML() {
         <span class="method-name">이메일</span>
         <span class="method-detail${on ? ' is-on' : ''}">${detail}</span>
       </span>
+      ${action}
     </li>`;
 }
 
@@ -195,8 +204,91 @@ function providerRowHTML(p) {
 
 function renderMethods() {
   document.getElementById('method-list').innerHTML = emailRowHTML() + methods.providers.map(providerRowHTML).join('');
-  // 켜진 제공사도, 이어 둔 계정도 없으면 보여 줄 것이 없다
-  document.getElementById('methods').hidden = !methods.providers.length;
+  // 소셜 로그인을 켜지 않은 곳에서는 이메일 줄(비밀번호 바꾸기)만 보인다. 그것도 없으면 보여 줄 것이 없다
+  const social = methods.providers.length > 0;
+  document.getElementById('methods-desc').hidden = !social;
+  document.getElementById('methods-hint').hidden = !social;
+  document.getElementById('methods').hidden = !social && !methods.email;
+}
+
+function showMethodsMessage(text, isError) {
+  methodsResult.textContent = text;
+  methodsResult.className = `methods-result ${isError ? 'is-error' : 'is-info'}`;
+  methodsResult.hidden = false;
+}
+
+// ----- 비밀번호 바꾸기 (AUTH-08) -----
+const passwordDialog = document.getElementById('password-dialog');
+const passwordForm = document.getElementById('password-form');
+const PASSWORD_FIELDS = { current_password: 'current', new_password: 'new', new_password_again: 'again' };
+
+function passwordFieldError(name, message) {
+  document.getElementById(`password-${PASSWORD_FIELDS[name]}-error`).textContent = message;
+  const input = passwordForm.elements[name];
+  if (message) {
+    input.setAttribute('aria-invalid', 'true');
+    input.focus();
+  } else {
+    input.removeAttribute('aria-invalid');
+  }
+}
+
+function clearPasswordErrors() {
+  document.getElementById('password-error').textContent = '';
+  Object.keys(PASSWORD_FIELDS).forEach((name) => passwordFieldError(name, ''));
+}
+
+function openPasswordDialog() {
+  passwordForm.reset();
+  clearPasswordErrors();
+  document.getElementById('password-submit').disabled = false;
+  passwordDialog.showModal();
+  passwordForm.elements.current_password.focus();
+}
+
+document.getElementById('password-cancel').addEventListener('click', () => passwordDialog.close());
+passwordDialog.addEventListener('click', (e) => {
+  if (e.target === passwordDialog) passwordDialog.close(); // 바깥을 누르면 닫는다
+});
+
+passwordForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearPasswordErrors();
+  const current = passwordForm.elements.current_password.value;
+  const next = passwordForm.elements.new_password.value;
+  let problem = null;
+  if (!current) problem = ['current_password', '지금 비밀번호를 입력해 주세요.'];
+  else if (next.length < 8) problem = ['new_password', '비밀번호는 8자 이상으로 써 주세요.'];
+  else if (next !== passwordForm.elements.new_password_again.value) problem = ['new_password_again', '새 비밀번호와 같게 한 번 더 써 주세요.'];
+  if (problem) {
+    passwordFieldError(...problem);
+    return;
+  }
+
+  const submit = document.getElementById('password-submit');
+  submit.disabled = true;
+  try {
+    await Store.changePassword(current, next);
+    passwordDialog.close();
+    showMethodsMessage('비밀번호를 바꿨어요. 다른 기기의 로그인은 끊겼어요.', false);
+  } catch (err) {
+    const bad = Object.keys(PASSWORD_FIELDS).find((name) => err.fields && err.fields[name]);
+    if (bad) passwordFieldError(bad, err.fields[bad]);
+    else document.getElementById('password-error').textContent = err.firstMessage || err.message;
+    submit.disabled = false;
+  }
+});
+
+// 비밀번호가 없는 회원: 비밀번호를 정하는 링크를 메일로 보낸다 (로그인 화면의 '비밀번호 다시 정하기'와 같은 메일)
+async function sendPasswordMail(button) {
+  button.disabled = true;
+  const result = await Auth.requestPasswordReset(methods.email);
+  if (result.ok) {
+    showMethodsMessage(`${methods.email} 로 비밀번호를 정하는 링크를 보냈어요. 메일함을 확인해 주세요.`, false);
+  } else {
+    showMethodsMessage(result.message, true);
+    button.disabled = false;
+  }
 }
 
 async function loadMethods() {
@@ -234,6 +326,12 @@ function openConnectDialog(provider) {
 }
 
 document.getElementById('method-list').addEventListener('click', async (e) => {
+  const password = e.target.closest('[data-password]');
+  if (password) {
+    if (password.dataset.password === 'change') openPasswordDialog();
+    else await sendPasswordMail(password);
+    return;
+  }
   const connect = e.target.closest('[data-connect]');
   if (connect) {
     openConnectDialog(connect.dataset.connect);

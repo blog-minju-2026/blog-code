@@ -19,6 +19,7 @@ from apps.posts.models import Post
 from apps.posts.serializers import paginate
 
 from . import services
+from .models import AdminLog
 
 User = get_user_model()
 
@@ -256,3 +257,51 @@ class GuestbookView(AdminView):
         if q:
             qs = qs.filter(Q(content__icontains=q) | Q(author__nickname__icontains=q) | Q(blog__address__icontains=q))
         return Response(paginate(qs, request, guestbook_row))
+
+
+# ----- 관리 기록 (ADMIN-06): 누가 언제 무엇을 왜 숨기고 제한했는지. 보기만 한다 -----
+def log_targets(logs):
+    """기록이 가리키는 대상을 종류마다 한 번에 찾는다: {(종류, id): 화면에 보일 값}. 지워진 대상은 빠진다."""
+    ids = {}
+    for log in logs:
+        ids.setdefault(log.target_type, set()).add(log.target_id)
+    found = {}
+    for user in User.objects.filter(pk__in=ids.get("user", ())):
+        found["user", user.pk] = {"nickname": user.nickname, "withdrawn": not user.is_active}
+    for post in Post.objects.filter(pk__in=ids.get("post", ())).select_related("blog"):
+        found["post", post.pk] = {"title": post.title, "blog_address": post.blog.address, "no": post.post_no}
+    for comment in Comment.objects.filter(pk__in=ids.get("comment", ())).select_related("post__blog"):
+        found["comment", comment.pk] = {
+            "content": comment.content[:80], "blog_address": comment.post.blog.address, "no": comment.post.post_no,
+        }
+    for entry in GuestbookEntry.objects.filter(pk__in=ids.get("guestbook", ())).select_related("blog"):
+        found["guestbook", entry.pk] = {"content": entry.content[:80], "blog_address": entry.blog.address}
+    return found
+
+
+class LogsView(AdminView):
+    """GET /api/admin/logs?q=&page= — 관리 기록, 새것부터. 사유 · 처리한 관리자 닉네임으로 찾는다.
+
+    target 은 그 대상이 아직 있을 때만 온다 (주인이 지운 기록 · 댓글은 null).
+    """
+
+    def get(self, request):
+        qs = AdminLog.objects.select_related("admin").order_by("-created_at", "-id")
+        q = search_text(request)
+        if q:
+            qs = qs.filter(Q(reason__icontains=q) | Q(admin__nickname__icontains=q))
+
+        def make_item(rows):
+            targets = log_targets(rows)
+            return lambda log: {
+                "id": log.pk,
+                "created_at": log.created_at,
+                "admin": log.admin.nickname,
+                "action": log.action,
+                "target_type": log.target_type,
+                "target_id": log.target_id,
+                "target": targets.get((log.target_type, log.target_id)),
+                "reason": log.reason,
+            }
+
+        return Response(paginate(qs, request, make_item=make_item))

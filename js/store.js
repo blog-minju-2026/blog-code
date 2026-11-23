@@ -131,6 +131,15 @@ const Store = (function () {
   const getComments = (address, no) => Api.get(`${postUrl(address, no)}/comments`);
   const addComment = (address, no, content, clientToken) => Api.post(`${postUrl(address, no)}/comments`, { content, client_token: clientToken });
   const deleteComment = (id) => Api.delete(`/api/comments/${id}`);
+  // 한채 관리 › 이웃 (주인만, SUB-04)
+  // manageNeighbors → { items: [{ id, user: UserSummary, since }], page, total, total_pages }
+  const manageNeighbors = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/manage/neighbors${query({ page, size })}`);
+  // 이웃 내보내기: 그 회원은 다시 받아 주기 전까지 이웃을 맺지 못한다 → { subscriber_count }
+  const kickNeighbor = (address, id) => Api.delete(`${blogUrl(address)}/manage/neighbors/${id}`);
+  // blockedNeighbors → { items: [{ id, user: UserSummary, blocked_at }], … } · 다시 받아 주기
+  const blockedNeighbors = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/manage/blocked-neighbors${query({ page, size })}`);
+  const unblockNeighbor = (address, id) => Api.delete(`${blogUrl(address)}/manage/blocked-neighbors/${id}`);
+
   // 한채 관리 › 댓글 · 방명록 (주인만): { items: [Comment + hidden_reason (+ post: { no, title })], page, total, total_pages }
   const manageComments = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/manage/comments${query({ page, size })}`);
   const manageGuestbook = (address, { page, size } = {}) => Api.get(`${blogUrl(address)}/manage/guestbook${query({ page, size })}`);
@@ -174,6 +183,9 @@ const Store = (function () {
 
   // 연결 끊기. 돌려주는 값: 바뀐 로그인 방법. 마지막 남은 방법이면 409 LAST_LOGIN_METHOD
   const disconnectSocial = (provider) => Api.delete(`/api/me/social/${encodeURIComponent(provider)}`);
+
+  // 비밀번호 바꾸기 (AUTH-08). 틀리면 ApiError 의 fields 에 current_password · new_password
+  const changePassword = (currentPassword, newPassword) => Api.post('/api/me/password', { current_password: currentPassword, new_password: newPassword });
 
   async function updateMe(data) {
     const result = await Api.patch('/api/me', data);
@@ -227,6 +239,10 @@ const Store = (function () {
     editComment,
     manageComments,
     manageGuestbook,
+    manageNeighbors,
+    kickNeighbor,
+    blockedNeighbors,
+    unblockNeighbor,
     getGuestbook,
     addGuestbook,
     editGuestbook,
@@ -241,5 +257,6 @@ const Store = (function () {
     startSocialConnect,
     disconnectSocial,
     nicknameAvailable,
+    changePassword,
   };
 })();

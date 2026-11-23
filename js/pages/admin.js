@@ -4,6 +4,7 @@
  * admin?tab=posts&q=      기록 찾기 · 본문 보기 · 숨기기 · 되돌리기
  * admin?tab=comments&q=   댓글 찾기 · 숨기기 · 되돌리기
  * admin?tab=guestbook&q=  방명록 찾기 · 숨기기 · 되돌리기
+ * admin?tab=logs&q=       관리 기록 보기 (ADMIN-06): 누가 언제 무엇을 왜 숨기고 제한했는지. 고치거나 지울 수 없다
  * 모든 처리는 사유를 받아 서버의 관리 기록에 남는다.
  */
 const params = new URLSearchParams(location.search);
@@ -12,6 +13,17 @@ const TABS = {
   posts: { label: '기록', placeholder: '제목 · 한채 주소나 이름 · 주인 닉네임', api: '/api/admin/posts' },
   comments: { label: '댓글', placeholder: '내용 · 쓴 사람 닉네임 · 한채 주소', api: '/api/admin/comments' },
   guestbook: { label: '방명록', placeholder: '내용 · 쓴 사람 닉네임 · 한채 주소', api: '/api/admin/guestbook' },
+  logs: { label: '관리 기록', placeholder: '사유 · 처리한 관리자 닉네임', api: '/api/admin/logs' },
+};
+const LOG_ACTIONS = {
+  HIDE_POST: '기록 숨김',
+  UNHIDE_POST: '기록 숨김 되돌림',
+  HIDE_COMMENT: '댓글 숨김',
+  UNHIDE_COMMENT: '댓글 숨김 되돌림',
+  HIDE_GUESTBOOK: '방명록 숨김',
+  UNHIDE_GUESTBOOK: '방명록 숨김 되돌림',
+  SANCTION_USER: '이용 제한',
+  RELEASE_USER: '이용 제한 풀기',
 };
 const tab = TABS[params.get('tab')] ? params.get('tab') : 'users';
 const q = (params.get('q') || '').trim();
@@ -184,7 +196,33 @@ function commentRowHTML(c, index) {
     </div>`;
 }
 
-const ROW = { users: userRowHTML, posts: postRowHTML, comments: commentRowHTML, guestbook: commentRowHTML };
+// 관리 기록 한 줄. target 은 대상이 아직 있을 때만 온다 (주인이 지운 기록 · 댓글은 null)
+function logTargetHTML(log) {
+  const t = log.target;
+  if (!t) return '<span class="admin-sub">지금은 없는 대상이에요 (지워졌어요)</span>';
+  if (log.target_type === 'user') return `<span class="admin-sub">회원 · ${t.withdrawn ? '떠난 사람' : escapeHTML(t.nickname || '(닉네임 없음)')}</span>`;
+  if (log.target_type === 'post') {
+    return `<span class="admin-sub">기록 · <a class="text-link" href="${Links.admin('posts', { q: t.blog_address })}">${escapeHTML(t.title || '(제목 없음)')}</a> (${escapeHTML(t.blog_address)})</span>`;
+  }
+  const where = log.target_type === 'comment'
+    ? `<a class="text-link" href="${Links.post(t.blog_address, t.no)}">${escapeHTML(t.blog_address)}의 ${t.no}번 기록</a>`
+    : `<a class="text-link" href="${Links.guestbook(t.blog_address)}">${escapeHTML(t.blog_address)}의 방명록</a>`;
+  return `<span class="admin-sub">${log.target_type === 'comment' ? '댓글' : '방명록'} · “${escapeHTML(t.content)}” · ${where}</span>`;
+}
+
+function logRowHTML(log) {
+  return `
+    <div class="admin-row">
+      <div class="admin-main">
+        <strong>${escapeHTML(LOG_ACTIONS[log.action] || log.action)}</strong>
+        ${logTargetHTML(log)}
+        <p class="admin-text">사유: ${escapeHTML(log.reason)}</p>
+        <span class="admin-sub">${escapeHTML(log.admin || '관리자')} · ${formatDateTime(log.created_at)}</span>
+      </div>
+    </div>`;
+}
+
+const ROW = { users: userRowHTML, posts: postRowHTML, comments: commentRowHTML, guestbook: commentRowHTML, logs: logRowHTML };
 
 async function loadRows() {
   const query = new URLSearchParams();

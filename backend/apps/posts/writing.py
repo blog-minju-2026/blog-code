@@ -54,10 +54,14 @@ def apply_fields(post, data, blog, allow_empty=False):
         post.topic = find_topic(data["topic_slug"])
     if "visibility" in data:
         post.visibility = data["visibility"]
-        if post.visibility == Post.Visibility.PUBLIC:
-            post.ever_public = True
     if "cover_image_id" in data:
         post.cover_image = find_cover(data["cover_image_id"], blog.owner)
+
+
+def mark_public(post):
+    """공개 상태로 발행된 적이 있는지 적어 둔다 (data-model '발행일 규칙'). 임시저장은 아직 아무에게도 보이지 않았다."""
+    if post.status == Post.Status.PUBLISHED and post.visibility == Post.Visibility.PUBLIC:
+        post.ever_public = True
 
 
 def link_images(post, owner):
@@ -75,14 +79,16 @@ def link_images(post, owner):
 
 def set_tags(post, names):
     """글의 태그를 names 로 바꾼다. 없던 이름이면 그 한채에 새로 만든다 (대소문자 무시)."""
-    tags = []
+    # 같은 태그인지는 DB 정렬 규칙이 정한다 (요청 검사는 영문 대소문자만 본다). 전각 'ａｂｃ' 와 'abc' 처럼
+    # DB 만 같다고 보는 이름이 함께 오면 같은 태그가 두 번 잡히므로, 찾은 태그로 한 번 더 거른다
+    tags = {}
     for name in names:
         tag = Tag.objects.filter(blog=post.blog, name__iexact=name).first()
         if tag is None:
             tag = Tag.objects.create(blog=post.blog, name=name)
-        tags.append(tag)
+        tags.setdefault(tag.pk, tag)
     PostTag.objects.filter(post=post).delete()
-    PostTag.objects.bulk_create([PostTag(post=post, tag=tag) for tag in tags])
+    PostTag.objects.bulk_create([PostTag(post=post, tag=tag) for tag in tags.values()])
 
 
 def publish(blog, data, draft=None):
@@ -105,6 +111,7 @@ def publish(blog, data, draft=None):
     post.status = Post.Status.PUBLISHED
     post.published_at = timezone.now()
     apply_fields(post, data, blog)
+    mark_public(post)
     post.save()
     link_images(post, blog.owner)
     post.save(update_fields=["first_image"])
@@ -130,6 +137,7 @@ def save_draft(blog, data, draft=None):
 
 def update(post, data):
     apply_fields(post, data, post.blog)
+    mark_public(post)
     post.save()
     if "content" in data:
         link_images(post, post.blog.owner)

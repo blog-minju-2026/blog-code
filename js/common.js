@@ -33,6 +33,10 @@ const Links = {
     const params = new URLSearchParams(Object.entries(filter).filter(([, v]) => v && v !== 'comments' && v !== 1));
     return params.toString() ? `/manage-comments?${params}` : '/manage-comments';
   },
+  manageNeighbors: (filter = {}) => {
+    const params = new URLSearchParams(Object.entries(filter).filter(([, v]) => v && v !== 'neighbors' && v !== 1));
+    return params.toString() ? `/manage-neighbors?${params}` : '/manage-neighbors';
+  },
   topic: (slug) => `/topic?slug=${encodeURIComponent(slug)}`,
   rooms: () => '/rooms',
   neighbors: () => '/neighbors',
@@ -278,7 +282,7 @@ function ownerGateHTML(blog) {
     </div>`;
 }
 
-// 관리 탭: 한채 관리 · 기록 관리 · 방 관리 · 댓글 · 방명록
+// 관리 탭: 한채 관리 · 기록 관리 · 방 관리 · 댓글 · 방명록 · 이웃
 function manageTabsHTML(current) {
   const tab = (key, label, href) => (key === current
     ? `<a href="${href}" aria-current="page">${label}</a>`
@@ -287,7 +291,8 @@ function manageTabsHTML(current) {
     ${tab('settings', '한채 관리', Links.settings())}
     ${tab('posts', '기록 관리', Links.managePosts())}
     ${tab('rooms', '방 관리', Links.rooms())}
-    ${tab('comments', '댓글 · 방명록', Links.manageComments())}`;
+    ${tab('comments', '댓글 · 방명록', Links.manageComments())}
+    ${tab('neighbors', '이웃', Links.manageNeighbors())}`;
 }
 
 // 주인만 들어오는 화면: 로그인 안 했으면 로그인으로, 한채가 없으면 한채 짓기로. 통과하면 { user, blog }

@@ -92,15 +92,15 @@
           </div>
         </form>
 
-        <!-- 로그인 방법 (AUTH-07): 소셜 계정을 잇고 끊는다. 줄은 me.js 가 GET /api/me/login-methods 로 그린다 -->
+        <!-- 로그인 방법 (AUTH-07 · 08): 비밀번호를 바꾸고, 소셜 계정을 잇고 끊는다. 줄은 me.js 가 GET /api/me/login-methods 로 그린다 -->
         <section class="card methods-box" aria-labelledby="methods-title" id="methods" hidden>
           <div class="methods-head">
             <h2 id="methods-title">로그인 방법</h2>
-            <span>이어 둔 방법이면 어느 것으로 로그인해도 같은 한채로 들어와요. 소셜 계정의 이메일이 한채 이메일과 달라도 이을 수 있어요.</span>
+            <span id="methods-desc">이어 둔 방법이면 어느 것으로 로그인해도 같은 한채로 들어와요. 소셜 계정의 이메일이 한채 이메일과 달라도 이을 수 있어요.</span>
           </div>
           <p class="methods-result" id="methods-result" role="status" hidden></p>
           <ul class="method-list" id="method-list"></ul>
-          <span class="field-hint">마지막 남은 로그인 방법은 끊을 수 없어요. 한 소셜 계정은 한채 계정 하나에만 이을 수 있어요.</span>
+          <span class="field-hint" id="methods-hint">마지막 남은 로그인 방법은 끊을 수 없어요. 한 소셜 계정은 한채 계정 하나에만 이을 수 있어요.</span>
         </section>
 
         <!-- 계정 연결 전 본인 확인 -->
@@ -126,6 +126,34 @@
             <div class="hc-dialog-actions">
               <button type="button" class="btn btn-secondary" id="connect-cancel">취소</button>
               <button type="submit" class="btn btn-primary" id="connect-submit"></button>
+            </div>
+          </form>
+        </dialog>
+
+        <!-- 비밀번호 바꾸기 (AUTH-08): 지금 비밀번호를 확인하고 새 비밀번호로 바꾼다 -->
+        <dialog class="hc-dialog connect-dialog" id="password-dialog" aria-labelledby="password-title">
+          <form id="password-form" method="dialog" novalidate>
+            <h2 id="password-title">비밀번호 바꾸기</h2>
+            <p>바꾸면 이 기기는 로그인한 채로 두고, 다른 기기의 로그인은 끊어요.</p>
+            <div class="field-group">
+              <label for="password-current">지금 비밀번호</label>
+              <input class="input" id="password-current" name="current_password" type="password" autocomplete="current-password" aria-describedby="password-current-error">
+              <span class="field-status is-bad" id="password-current-error" role="alert"></span>
+            </div>
+            <div class="field-group">
+              <label for="password-new">새 비밀번호 <span class="field-hint">8자 이상</span></label>
+              <input class="input" id="password-new" name="new_password" type="password" autocomplete="new-password" aria-describedby="password-new-error">
+              <span class="field-status is-bad" id="password-new-error" role="alert"></span>
+            </div>
+            <div class="field-group">
+              <label for="password-again">새 비밀번호 한 번 더</label>
+              <input class="input" id="password-again" name="new_password_again" type="password" autocomplete="new-password" aria-describedby="password-again-error">
+              <span class="field-status is-bad" id="password-again-error" role="alert"></span>
+            </div>
+            <p class="form-error-line" id="password-error" role="alert"></p>
+            <div class="hc-dialog-actions">
+              <button type="button" class="btn btn-secondary" id="password-cancel">취소</button>
+              <button type="submit" class="btn btn-primary" id="password-submit">바꾸기</button>
             </div>
           </form>
         </dialog>

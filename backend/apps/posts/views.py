@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from apps.common.access import get_visible_blog_or_404, visible_blogs, visible_posts
 from apps.common.errors import APIError
 from apps.common.permissions import EnforceCsrfMixin, IsMember
+from apps.common.throttles import ScopedReadThrottle
 
 from . import writing
 from .images import image_payload, save_upload
@@ -39,6 +40,8 @@ VIEW_DEDUP_WINDOW = timedelta(minutes=30)
 # 한채마다 임시저장은 이만큼까지 (쌓아 두기만 하는 것을 막는다)
 MAX_DRAFTS = 100
 VISITOR_COOKIE = "hc_vid"
+# 한채마다 방은 이만큼까지 (research 14절)
+MAX_ROOMS = 100
 
 
 def owned_blog(address, user):
@@ -364,6 +367,8 @@ class CategoriesView(APIView):
         serializer = CategoryCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         name = serializer.validated_data["name"]
+        if Category.objects.filter(blog=blog).count() >= MAX_ROOMS:
+            raise APIError(400, "VALIDATION_ERROR", f"방은 {MAX_ROOMS}개까지 만들 수 있어요. 쓰지 않는 방을 없애 주세요.")
         last = Category.objects.filter(blog=blog).order_by("-sort_order").first()
         try:
             with transaction.atomic():
@@ -472,6 +477,9 @@ class SearchPostsView(APIView):
     정확도는 제목(3) · 태그(2) · 본문(1)에 낱말이 있는지 더한 점수, 같으면 최신순.
     """
 
+    throttle_classes = [ScopedReadThrottle]
+    throttle_scope = "search"
+
     def get(self, request):
         q = search_query(request)
         sort = request.query_params.get("sort") or "relevance"
@@ -497,6 +505,9 @@ class SearchPostsView(APIView):
 
 class SearchBlogsView(APIView):
     """GET /api/search/blogs?q=&page= — 한채 찾기 (이름 · 소개). 이름에 있으면 먼저, 같으면 이웃 많은 순 (SRCH-02)."""
+
+    throttle_classes = [ScopedReadThrottle]
+    throttle_scope = "search"
 
     def get(self, request):
         from apps.blogs.serializers import blog_summary

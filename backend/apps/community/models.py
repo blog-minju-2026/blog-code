@@ -104,3 +104,26 @@ class Subscription(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["subscriber", "blog"], name="uk_subscriptions"),
         ]
+
+
+class BlockedNeighbor(models.Model):
+    """내보낸 이웃 (SUB-04). 주인이 내보낸 회원은 그 한채와 다시 이웃을 맺을 수 없다 (주인이 다시 받아 줄 때까지).
+
+    이웃 공개 기록은 '이웃 맺기'를 누른 사람 모두가 본다. 주인이 그 범위를 정할 수 있게 하려는 것이다.
+    """
+
+    blog = models.ForeignKey(
+        "blogs.Blog", on_delete=models.CASCADE, related_name="blocked_neighbors", verbose_name="한채"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="내보낸 회원"
+    )
+    created_at = models.DateTimeField("내보낸 시각", auto_now_add=True)
+
+    class Meta:
+        db_table = "blog_blocked_neighbors"
+        verbose_name = "내보낸 이웃"
+        verbose_name_plural = "내보낸 이웃"
+        constraints = [
+            models.UniqueConstraint(fields=["blog", "user"], name="uk_blog_blocked_neighbors"),
+        ]
