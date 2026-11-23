@@ -28,7 +28,7 @@ RUN DJANGO_SECRET_KEY=collectstatic-only python manage.py collectstatic --noinpu
 EXPOSE 8000
 # 컨테이너가 뜰 때마다 DB 를 최신 마이그레이션으로 맞춘 뒤 서버를 켠다.
 # 포트는 PORT 로 바꿀 수 있다 (학교 서버는 호스트 네트워크로 띄워 APP_PORT 에서 바로 받는다)
-# 받는 주소는 BIND_HOST 로 바꿀 수 있다. 학교 서버는 127.0.0.1 로 좁혀 같은 서버의 nginx 만 닿게 한다 (deploy.sh).
-# 기본값 0.0.0.0 은 docker compose · docker run -p 처럼 컨테이너 밖에서 포트를 이어 줄 때 필요하다
+# 받는 주소는 BIND_HOST 로 바꿀 수 있다. 기본값 0.0.0.0 은 docker compose · docker run -p 처럼 컨테이너 밖에서
+# 포트를 이어 줄 때도, 학교 서버의 공용 nginx 가 붙을 때도 필요하다 (deploy.sh)
 # exec: gunicorn 이 docker stop 의 신호를 직접 받아, 하던 요청을 마친 뒤 내려간다 (deploy.sh)
 CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi:application --bind ${BIND_HOST:-0.0.0.0}:${PORT:-8000} --workers 3 --access-logfile - --error-logfile -"]
