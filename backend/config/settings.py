@@ -58,8 +58,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.common.middleware.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    # Django 의 SessionMiddleware 에서 '세션을 읽지 않은 요청은 저장하지 않기'만 더한 것 (apps/common/middleware.py)
+    "apps.common.middleware.QuietSessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -195,6 +197,16 @@ if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = f"한채 <{EMAIL_HOST_USER or 'noreply@localhost'}>"
+
+# 서버 오류(500)를 메일로 알린다. 받을 주소는 ADMIN_EMAILS(쉼표로 여럿), 없으면 메일을 보내는 한채 계정 자신.
+# 운영(DEBUG=0)에서만 가고, 메일 설정이 없으면 로그에만 남는다. 메일에는 오류 난 주소와 traceback 이 담기고,
+# 요청 본문(JSON)은 담기지 않는다. 쿠키 · 비밀 값은 Django 가 가린다
+ADMIN_EMAILS = [a.strip() for a in env("ADMIN_EMAILS", "").split(",") if a.strip()] or (
+    [EMAIL_HOST_USER] if EMAIL_HOST_USER else []
+)
+ADMINS = [("한채 관리자", address) for address in ADMIN_EMAILS]
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+EMAIL_SUBJECT_PREFIX = "[한채 오류] "
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[한채] "
 
 
@@ -241,6 +253,9 @@ REST_FRAMEWORK = {
         "comment": "10/min",
         "post_view": "300/hour",  # 기록 조회 수 세기 (부풀리기 막기. 넘으면 429 로 세지 않는다)
         "guestbook": "10/min",
+        "like": "60/min",  # 공감 · 취소
+        "subscription": "30/min",  # 이웃 맺기 · 끊기
+        "search": "120/min",  # 마을에서 찾기 (읽는 요청이지만 DB 를 넓게 훑는다. apps/common/throttles.py 의 ScopedReadThrottle)
     },
     # 손님의 IP 는 nginx 가 X-Forwarded-For 끝에 붙인 값을 쓴다 (앞쪽은 손님이 마음대로 적어 보낼 수 있다)
     # nginx 없이 바로 받는 곳(노트북의 docker compose · runserver)에는 이 헤더가 없어 접속 주소를 그대로 쓴다
@@ -298,6 +313,19 @@ if USE_HTTPS:
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+        # 처리하지 못한 오류(500)를 ADMINS 에게 메일로 (되풀이되는 오류는 줄여서, apps/common/logs.py). ADMINS 가 비면 보내지 않는다
+        "mail_admins": {
+            "level": "ERROR",
+            "filters": ["require_debug_false"],
+            "class": "apps.common.logs.ThrottledAdminEmailHandler",
+        },
+    },
     "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        # 500 은 django.request 가 ERROR 로 남긴다. 로그(콘솔)와 메일 한 번씩만 가게 여기서 끝낸다
+        "django": {"handlers": ["console", "mail_admins"], "level": "INFO", "propagate": False},
+    },
 }

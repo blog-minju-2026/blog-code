@@ -17,7 +17,7 @@ from django.utils import timezone
 from apps.blogs.demolish import demolish_blogs
 from apps.blogs.models import Blog
 from apps.common.storage import delete_files
-from apps.community.models import Comment, GuestbookEntry, PostLike, Subscription
+from apps.community.models import BlockedNeighbor, Comment, GuestbookEntry, PostLike, Subscription
 from apps.posts.models import Image, Post
 
 from . import attempts
@@ -62,6 +62,7 @@ def withdraw(user):
             files += _file_names(image.file, image.thumb_file)
         Image.objects.filter(uploader=user).delete()
         Subscription.objects.filter(subscriber=user).delete()
+        BlockedNeighbor.objects.filter(user=user).delete()  # 다른 한채가 나를 내보낸 표시
         PostLike.objects.filter(user=user).delete()
 
         # 로그인 수단과 내 정보

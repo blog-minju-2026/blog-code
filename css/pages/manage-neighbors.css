@@ -1,0 +1,61 @@
+/* ===== 한채 관리 › 이웃 (SUB-04) ===== */
+/* 기록 관리(manage-posts.css)의 표 · 거르기 · 쪽 넘기기, 댓글 관리(manage-comments.css)의 사람 칸을 같이 쓴다 */
+.neighbor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 110px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.neighbor-row.manage-row-head {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 13px;
+  color: var(--meok-sub);
+}
+
+.neighbor-house {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neighbor-house.is-none {
+  color: var(--meok-sub);
+}
+
+.neighbor-row .talk-date {
+  white-space: nowrap;
+}
+
+.neighbor-row button {
+  justify-self: end;
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.neighbor-row .delete {
+  color: var(--danger);
+}
+
+.neighbor-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--meok-sub);
+}
+
+/* 좁은 화면: 사람 · 한채를 위에, 날짜 · 버튼을 아래에 */
+@media (max-width: 640px) {
+  .neighbor-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+
+  .neighbor-row.manage-row-head {
+    display: none;
+  }
+}

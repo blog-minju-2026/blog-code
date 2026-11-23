@@ -4,7 +4,6 @@ import base64
 import binascii
 from datetime import datetime
 
-from django.conf import settings
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from rest_framework import serializers
@@ -14,6 +13,9 @@ from apps.common.errors import APIError
 from .content import media_url
 
 MAX_TAGS = 10
+# 본문 HTML 상한 (research 14절: 1MB). 사진은 주소만 들어가므로 글자로만 1MB 다
+MAX_CONTENT_LENGTH = 1_000_000
+CONTENT_TOO_LONG = "본문이 너무 길어요. 나눠서 써 주세요."
 
 
 # ----- 요청 -----
@@ -25,7 +27,11 @@ class PostWriteSerializer(serializers.Serializer):
         trim_whitespace=True,
         error_messages={"blank": "제목을 써 주세요.", "required": "제목을 써 주세요.", "max_length": "제목은 1~100자로 써 주세요."},
     )
-    content = serializers.CharField(trim_whitespace=False, error_messages={"blank": "본문을 써 주세요.", "required": "본문을 써 주세요."})
+    content = serializers.CharField(
+        trim_whitespace=False,
+        max_length=MAX_CONTENT_LENGTH,
+        error_messages={"blank": "본문을 써 주세요.", "required": "본문을 써 주세요.", "max_length": CONTENT_TOO_LONG},
+    )
     category_id = serializers.IntegerField(required=False, allow_null=True)
     topic_slug = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     tags = serializers.ListField(child=serializers.CharField(trim_whitespace=True, allow_blank=True), required=False)
@@ -59,7 +65,10 @@ class DraftWriteSerializer(PostWriteSerializer):
         max_length=100, trim_whitespace=True, required=False, allow_blank=True,
         error_messages={"max_length": "제목은 100자까지 쓸 수 있어요."},
     )
-    content = serializers.CharField(trim_whitespace=False, required=False, allow_blank=True)
+    content = serializers.CharField(
+        trim_whitespace=False, required=False, allow_blank=True, max_length=MAX_CONTENT_LENGTH,
+        error_messages={"max_length": CONTENT_TOO_LONG},
+    )
 
 
 class CategoryCreateSerializer(serializers.Serializer):
@@ -80,10 +89,13 @@ def page_params(request):
     return page, size
 
 
-def paginate(queryset, request, to_item):
+def paginate(queryset, request, to_item=None, make_item=None):
+    """make_item(rows): 그 쪽의 행들을 먼저 받아 to_item 을 만들어 줄 때 쓴다 (행마다 따로 묻던 것을 한 번에 묻게)."""
     page, size = page_params(request)
     total = queryset.count()
-    rows = queryset[(page - 1) * size: page * size]
+    rows = list(queryset[(page - 1) * size: page * size])
+    if make_item is not None:
+        to_item = make_item(rows)
     return {
         "items": [to_item(row) for row in rows],
         "page": page,
@@ -170,10 +182,11 @@ def post_summary(post, request, owner_view=False):
 
 
 def post_url(post):
-    """화면 주소. 서비스 도메인이 정해지면 {주소}.한채도메인/{no} (API 명세서 4.3)."""
-    if settings.HANCHAE_DOMAIN:
-        return f"{settings.SCHEME}://{post.blog.address}.{settings.HANCHAE_DOMAIN}/{post.post_no}"
-    return None
+    """기록의 화면 주소. 호스트 없이 준다 (사진 주소처럼 도메인 · https 가 바뀌어도 깨지지 않게).
+
+    한채마다 서브도메인({주소}.한채도메인/{no})을 쓰는 방식은 아직 열지 않았다. 열 때는 js/common.js 의 Links 와 함께 바꾼다.
+    """
+    return f"/post?address={post.blog.address}&no={post.post_no}"
 
 
 def published_order(queryset):

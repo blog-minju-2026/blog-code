@@ -1,15 +1,18 @@
 # 한채 서버 배포
 
 학원에서 받은 「서버 배포 설명서」(학원 공용 서버, 공개 저장소에는 올리지 않음)의 순서를 한채에 맞춘 안내다.
-흐름: **main 에 올림 → GitHub Actions 가 Docker 이미지를 만듦 → 서버로 보냄 → SSH 로 `deploy.sh` 실행 → nginx 가 도메인을 내 포트 두 개로 나눠 연결.**
+흐름: **main 에 올림 → GitHub Actions 가 테스트를 돌림(실패하면 여기서 멈춤) → Docker 이미지를 만듦 → 서버로 보냄 → SSH 로 `deploy.sh` 실행 → nginx 가 도메인을 내 포트 두 개로 나눠 연결.**
 
 같은 이미지로 컨테이너 두 개(`hanchae-backend-1` · `hanchae-backend-2`)를 포트만 달리해 띄운다. 배포할 때 하나씩 차례로 바꾸므로 사이트가 끊기지 않고, 하나가 죽어도 다른 하나가 받는다. 서버 · nginx · DB 가 멈추면 함께 멈춘다.
 
 | 파일 | 하는 일 |
 | --- | --- |
 | `Dockerfile` · `.dockerignore` | Django + gunicorn 이미지. API 와 화면 파일(`*.html` · `css` · `js` · `assets`)을 함께 담는다. 컨테이너가 뜰 때 `migrate` 를 먼저 돌린다 |
-| `.github/workflows/deploy.yml` | main 에 백엔드 · 화면 · 배포 파일이 바뀌면 자동 배포. Actions 탭에서 손으로도 돌릴 수 있다 |
+| `.github/workflows/test.yml` | 테스트. PR 을 올리거나 고칠 때마다 돌고, 배포도 서버로 보내기 전에 이 테스트를 먼저 부른다 (MySQL 8.0.41 을 띄워 `manage.py test apps`) |
+| `.github/workflows/deploy.yml` | main 에 백엔드 · 화면 · 배포 파일이 바뀌면 테스트 뒤 자동 배포. Actions 탭에서 손으로도 돌릴 수 있다 |
 | `deploy/deploy.sh` | 서버에서 실행: 이미지 불러오기 → 1번 컨테이너 바꾸고 응답 확인 → 2번 컨테이너 바꾸고 응답 확인 |
+| `deploy/backup.sh` | 서버에서 실행: DB 와 사진을 `~/hanchae-backups` 로 백업 (아래 '백업') |
+| `.github/workflows/maintenance.yml` | 하루 한 번 백업 → 정리 (아래 '정기 백업 · 정리') |
 | `deploy/nginx/hanchae.conf.example` | nginx 설정 예시 |
 
 ## 1. GitHub Repository secrets 등록 (설명서 2단계)
@@ -35,6 +38,8 @@
 | `USE_HTTPS` | 도메인이 https 로 열리면 `1`, 아니면 비워 둔다 | 직접 |
 | `EMAIL_HOST_USER` | 인증 메일을 보낼 한채 전용 Gmail 주소 (예: `hanchae.blog@gmail.com`) | 직접 |
 | `EMAIL_HOST_PASSWORD` | 그 Gmail 의 **앱 비밀번호** 16자리 (계정 비밀번호가 아님). Google 계정 → 보안 → 2단계 인증을 켠 뒤 '앱 비밀번호'에서 만든다 | 직접 |
+| `ADMIN_EMAILS` | (선택) 서버 오류(500) 알림 메일을 받을 주소. 쉼표로 여럿. 비워 두면 `EMAIL_HOST_USER` 로 간다 | 직접 |
+| `BIND_HOST` | (보통 비워 둔다) 컨테이너가 요청을 받는 주소. 비우면 `127.0.0.1` 이라 같은 서버의 nginx 만 닿는다. nginx 가 다른 서버에 있을 때만 `0.0.0.0` | 직접 |
 | `KAKAO_CLIENT_ID` · `KAKAO_SECRET` | (소셜 로그인, 넣고 싶을 때만) 카카오 앱의 REST API 키 · 클라이언트 시크릿 | [social-login.md](social-login.md) |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_SECRET` | 〃 Google OAuth 클라이언트 ID · 보안 비밀 | 〃 |
 | `NAVER_CLIENT_ID` · `NAVER_SECRET` | 〃 네이버 애플리케이션의 Client ID · Client Secret | 〃 |
@@ -85,6 +90,8 @@ vi ~/nginx/hanchae.java21.net.conf      # 파일 이름 = 받은 도메인 + .co
 
 컨테이너는 서버의 네트워크를 그대로 쓰는 방식(`--network host`)으로 떠서 `APP_PORT` · `APP_PORT_2` 에서 바로 요청을 받는다. 학교 서버에서는 Docker 기본 네트워크에서 학교 내부망의 DB 로 가는 길이 막혀 있기 때문이다.
 
+컨테이너는 `127.0.0.1` 에서만 받는다 (`deploy.sh` 의 `BIND_HOST`). 그래서 **upstream 의 주소는 꼭 `127.0.0.1:<포트>`** 여야 한다. 밖에서 `서버주소:포트` 로 바로 들어오면 nginx 를 건너뛰어 접속 주소(`X-Forwarded-For`)를 꾸밀 수 있고, 그러면 요청 횟수 제한을 피할 수 있기 때문이다. 배포 뒤 사이트가 502 로 뜨면 `cat ~/nginx/<도메인>.conf` 의 upstream 주소를 먼저 확인한다 (다른 주소로 붙어야 하는 서버라면 Secret `BIND_HOST` 에 `0.0.0.0`).
+
 ## 3. 첫 배포
 
 1. 이 브랜치를 main 에 합치면 Actions 가 자동으로 돈다. (또는 Actions 탭 → deploy → Run workflow)
@@ -113,10 +120,11 @@ docker exec -it hanchae-backend-1 python manage.py createsuperuser
 - **한채 서브도메인**(`minju.<도메인>`)은 와일드카드 DNS 와 인증서가 있어야 한다. 안 되면 기능명세서 선택 7.3 을 경로 방식으로 바꾼다.
 - **Crowfoot DB 정렬 규칙**: 발급된 스키마의 기본 정렬 규칙이 `utf8mb4_0900_as_ci` 가 아닐 수 있다. 첫 배포 뒤 확인하고, 다르면 태그 대소문자 처리(TAG-01)를 다시 확인한다.
 
-## 정기 정리 (하루 한 번)
+## 정기 백업 · 정리 (하루 한 번)
 
 `.github/workflows/maintenance.yml` 이 매일 새벽 4시(한국 시간)에 배포와 같은 SSH Secret 으로 서버에 접속해
-`docker exec hanchae-backend-1 python manage.py run_maintenance` 를 부른다. 학교 서버에 cron 을 두지 않아도 된다.
+① `bash ~/hanchae/backup.sh` 로 백업하고 ② `docker exec hanchae-backend-1 python manage.py run_maintenance` 로 정리한다.
+학교 서버에 cron 을 두지 않아도 된다. 백업이 실패하면 정리는 하지 않는다 (그날 지울 것은 다음 날 지운다).
 
 | 지우는 것 | 기준 |
 | --- | --- |
@@ -125,6 +133,39 @@ docker exec -it hanchae-backend-1 python manage.py createsuperuser
 | 끝난 로그인 세션 | Django `clearsessions` |
 | 조회 기록 | 30일보다 오래됨 (순위는 최근 24시간만 본다. 기록의 조회 수는 그대로) |
 
-손으로 돌리려면 Actions → **maintenance** → Run workflow. `dry_run` 을 켜면 지우지 않고 수만 보여 준다.
+손으로 돌리려면 Actions → **maintenance** → Run workflow. `dry_run` 을 켜면 백업도 삭제도 하지 않고 수만 보여 준다.
 서버에서 직접: `docker exec hanchae-backend-1 python manage.py run_maintenance --dry-run`
 
+## 백업
+
+`deploy/backup.sh` 가 서버의 `~/hanchae-backups` 에 둔다 (배포할 때 `~/hanchae/backup.sh` 로 함께 올라간다).
+
+**백업은 2026년 12월 23일부터 한다.** 백업에는 지운 정보가 최대 14일 남으므로 개인정보 처리방침을 고쳤고(4장 · 11장), 회원에게 불리할 수 있는 변경이라 방침대로 30일 전(11월 23일)에 알렸다. `maintenance.yml` 의 `BACKUP_FROM` 이 그 시행일이고, 그 전에는 정리만 한다. 그 전에는 서버에서 손으로도 `backup.sh` 를 돌리지 않는다. PR 을 11월 23일보다 늦게 합치면 처리방침의 '알린 날 · 시행일', 릴리즈 노트의 날짜, `BACKUP_FROM` 을 함께 미룬다 (알린 날 + 30일).
+
+| 무엇 | 어디에 | 얼마나 |
+| --- | --- | --- |
+| DB 전체 (`mysqldump`, 컨테이너 안에서 뜬다) | `db-날짜-시각.sql.gz` | 14일치 |
+| 올린 사진 | `media/` (서비스의 `~/hanchae/media` 와 같은 모양) | 서비스에 있는 동안 |
+| 서비스에서 지워진 사진 | `media-removed/날짜/` | 14일 |
+
+- 지운 정보(탈퇴 · 지운 기록과 사진)도 백업에는 14일까지 남는다. **개인정보 처리방침 4장에 적은 '최대 14일'과 `backup.sh` 의 `KEEP_DAYS` 는 같아야 한다.** 하나를 바꾸면 다른 하나도 바꾼다.
+- 백업은 서비스와 **같은 서버**에 있다. 실수로 지웠거나 잘못된 배포로 데이터가 상했을 때는 되찾을 수 있지만, 서버 디스크가 망가지면 함께 사라진다. 가끔 노트북으로 내려받아 둔다:
+  ```bash
+  scp -P 8822 "<SSH_ID>@<SSH_ADDRESS>:hanchae-backups/db-*.sql.gz" ~/hanchae-backups/     # DB
+  scp -P 8822 -r "<SSH_ID>@<SSH_ADDRESS>:hanchae-backups/media" ~/hanchae-backups/        # 사진
+  ```
+  내려받은 파일에는 회원의 이메일 · 비밀번호 해시가 들어 있다. 남에게 주거나 공개된 곳에 올리지 않고, 14일이 지난 것은 지운다.
+- **되돌리기** (서비스가 쓰는 DB 를 덮어쓴다. 먼저 지금 모습을 `bash ~/hanchae/backup.sh` 로 한 번 더 떠 둔다):
+  ```bash
+  # 서버에서. 접속 값은 컨테이너가 갖고 있는 것을 그대로 쓴다
+  gunzip -c ~/hanchae-backups/db-<날짜-시각>.sql.gz | docker exec -i hanchae-backend-1 sh -c \
+    'MYSQL_PWD="$DB_PASSWORD" mysql --skip-ssl-verify-server-cert --host="${DB_HOST:-$DB_ADDRESS}" --port="$DB_PORT" --user="${DB_USER:-$DB_USERNAME}" "$DB_NAME"'
+  cp -a ~/hanchae-backups/media/. ~/hanchae/media/                                         # 사진
+  ```
+- **첫 백업 뒤 한 번은 되돌리기를 연습해 본다.** 백업은 되돌려 봐야 믿을 수 있다. 노트북의 MySQL 에 빈 DB 를 만들어 `gunzip -c db-….sql.gz | mysql -u root <빈 DB>` 로 넣어 보고, 테이블 수와 회원 · 기록 수가 맞는지 본다.
+- 백업이 실패하면 Actions 의 maintenance 가 빨갛게 뜬다. 서버에서 `bash ~/hanchae/backup.sh` 를 직접 돌리면 오류가 그대로 보인다.
+
+## 오류 알림 메일
+
+처리하지 못한 서버 오류(500)가 나면 `ADMIN_EMAILS`(없으면 `EMAIL_HOST_USER`)로 메일이 간다. 제목은 `[한채 오류]` 로 시작하고, 오류 난 주소와 traceback 이 담긴다.
+같은 자리의 같은 오류는 10분에 한 번, 모두 합쳐 한 시간에 10번까지만 보낸다 (작업자마다 세므로 실제로는 조금 더 올 수 있다. `backend/apps/common/logs.py`). 인증 메일과 같은 Gmail 계정으로 나가므로, 쏟아져서 하루 발송 한도를 다 쓰지 않게 한 것이다. 빠진 오류도 `docker logs hanchae-backend-1` 에는 모두 남는다.

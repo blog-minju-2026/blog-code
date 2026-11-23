@@ -9,6 +9,10 @@ from rest_framework.permissions import SAFE_METHODS
 from rest_framework.throttling import ScopedRateThrottle
 
 
+class ScopedReadThrottle(ScopedRateThrottle):
+    """읽는 요청(GET)도 세야 하는 API 에 쓴다. 예: 마을에서 찾기. 그 API 의 throttle_classes 에 넣는다."""
+
+
 class ScopedWriteThrottle(ScopedRateThrottle):
     def allow_request(self, request, view):
         # 같은 주소의 목록 보기(GET)는 세지 않는다. 예: 댓글 목록 · 쓰기가 한 주소

@@ -28,7 +28,8 @@ def unused_images(now=None):
         Image.objects.filter(created_at__lt=cutoff)
         .filter(~Exists(PostImage.objects.filter(image=OuterRef("pk"))))
         .filter(~Exists(Post.objects.filter(Q(cover_image=OuterRef("pk")) | Q(first_image=OuterRef("pk")))))
-        .exclude(file__in=profile_files)
+        # 프로필 · 한채 사진은 목록용 작은 사진 경로로 가리킨다 (예전에 건 것은 원본 경로)
+        .exclude(Q(file__in=profile_files) | Q(thumb_file__in=profile_files))
     )
 
 

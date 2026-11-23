@@ -161,11 +161,16 @@ class SuspendedSessionTests(AdminTestBase):
         # 세션이 끊겼으므로 그다음은 비회원
         self.assertEqual(session.get("/api/auth/me").json(), {"user": None})
 
-    def test_pages_still_open_after_logout(self):
+    def test_pages_still_open_and_the_first_api_call_tells_why(self):
         session = APIClient()
         session.force_login(self.owner)
         UserSanction.objects.create(user=self.owner, admin=self.admin, reason="도배", starts_at=timezone.now())
-        self.assertNotEqual(session.get("/").status_code, 403)
+        # 화면 파일은 누구에게나 같으므로 그대로 열린다 (제한 기록을 읽지 않는다)
+        self.assertEqual(session.get("/").status_code, 200)
+        # 화면이 여는 즉시 부르는 API 가 사유를 한 번 알리고(화면이 알림으로 보인다) 세션을 끊는다
+        res = session.get("/api/auth/me")
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.json()["error"]["detail"]["reason"], "도배")
         self.assertEqual(session.get("/api/auth/me").json(), {"user": None})
 
 

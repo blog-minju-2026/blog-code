@@ -6,7 +6,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.serializers import user_summary
+from apps.accounts.serializers import user_summary, visible_houses
 from apps.common.access import get_visible_blog_or_404, visible_blogs, visible_posts
 from apps.common.errors import APIError
 from apps.common.permissions import IsMember
@@ -15,7 +15,7 @@ from apps.posts.serializers import cursor_page, paginate, post_summary, with_cou
 from apps.posts.models import Post
 from apps.posts.views import owned_blog, visible_post_or_404
 
-from .models import Comment, GuestbookEntry, PostLike, Subscription
+from .models import BlockedNeighbor, Comment, GuestbookEntry, PostLike, Subscription
 
 
 class CommentWriteSerializer(serializers.Serializer):
@@ -43,14 +43,17 @@ class GuestbookWriteSerializer(CommentWriteSerializer):
     )
 
 
-def comment_payload(comment, request, blog_owner_id):
-    """Comment (API 명세서 3.4). 수정 · 삭제 가능 여부는 보는 사람 기준."""
+def comment_payload(comment, request, blog_owner_id, houses=None):
+    """Comment (API 명세서 3.4). 수정 · 삭제 가능 여부는 보는 사람 기준.
+
+    houses: 목록을 만들 때 쓴 사람들의 한채를 미리 찾아 둔 것 (visible_houses). 없으면 이 댓글 하나만 묻는다.
+    """
     viewer = request.user
     is_author = viewer.is_authenticated and comment.author_id == viewer.pk
     is_blog_owner = viewer.is_authenticated and blog_owner_id == viewer.pk
     data = {
         "id": comment.pk,
-        "author": user_summary(comment.author, request),
+        "author": user_summary(comment.author, request, houses),
         "content": comment.content,
         "created_at": comment.created_at,
         "edited_at": comment.edited_at,
@@ -62,16 +65,17 @@ def comment_payload(comment, request, blog_owner_id):
     return data
 
 
-def guestbook_payload(entry, request, blog_owner_id):
+def guestbook_payload(entry, request, blog_owner_id, houses=None):
     """방명록 한 줄: Comment 모양에 남긴 사람의 한채(현판 이름)를 더한다."""
-    data = comment_payload(entry, request, blog_owner_id)
-    house = None
-    if entry.author.is_active:
-        blog = visible_blogs(entry.author.blogs.all()).only("address", "name").first()
-        if blog:
-            house = {"address": blog.address, "name": blog.name}
-    data["author_blog"] = house
+    if houses is None:
+        houses = visible_houses([entry.author])
+    data = comment_payload(entry, request, blog_owner_id, houses)
+    data["author_blog"] = houses.get(entry.author_id) if entry.author.is_active else None
     return data
+
+
+def authors_houses(rows):
+    return visible_houses(row.author for row in rows)
 
 
 class PostCommentsView(APIView):
@@ -82,8 +86,9 @@ class PostCommentsView(APIView):
     def get(self, request, address, no):
         blog = get_visible_blog_or_404(address, request.user)
         post = visible_post_or_404(blog, no, request.user)
-        comments = post.comments.select_related("author")
-        items = [comment_payload(c, request, blog.owner_id) for c in comments]
+        comments = list(post.comments.select_related("author"))
+        houses = authors_houses(comments)
+        items = [comment_payload(c, request, blog.owner_id, houses) for c in comments]
         return Response({"items": items, "count": sum(1 for c in comments if not c.hidden_at)})
 
     def post(self, request, address, no):
@@ -148,6 +153,7 @@ class PostLikeView(APIView):
     """PUT · DELETE /api/blogs/{address}/posts/{no}/like — 공감 · 취소. 몇 번 보내도 결과가 같다 (SOC-01)."""
 
     permission_classes = [IsMember]
+    throttle_scope = "like"
 
     def target(self, request, address, no):
         blog = get_visible_blog_or_404(address, request.user)
@@ -174,10 +180,15 @@ class PostLikeView(APIView):
         return self.result(post, False)
 
 
+def neighbor_blocked():
+    return APIError(403, "NEIGHBOR_BLOCKED", "이 한채와는 이웃을 맺을 수 없어요.")
+
+
 class SubscriptionView(APIView):
     """PUT · DELETE /api/blogs/{address}/subscription — 이웃 맺기 · 끊기 (SUB-01)."""
 
     permission_classes = [IsMember]
+    throttle_scope = "subscription"
 
     def target(self, request, address):
         blog = get_visible_blog_or_404(address, request.user)
@@ -190,11 +201,18 @@ class SubscriptionView(APIView):
 
     def put(self, request, address):
         blog = self.target(request, address)
+        blocked = BlockedNeighbor.objects.filter(blog=blog, user=request.user)
+        if blocked.exists():
+            raise neighbor_blocked()
         try:
             with transaction.atomic():
                 Subscription.objects.get_or_create(blog=blog, subscriber=request.user)
         except IntegrityError:
             pass
+        # 맺는 사이에 주인이 내보냈으면 되돌린다 (내보내기는 막는 표시를 먼저 남기고 이웃을 지운다)
+        if blocked.exists():
+            Subscription.objects.filter(blog=blog, subscriber=request.user).delete()
+            raise neighbor_blocked()
         return self.result(blog, True)
 
     def delete(self, request, address):
@@ -222,7 +240,11 @@ class GuestbookView(APIView):
     def get(self, request, address):
         blog = get_visible_blog_or_404(address, request.user)
         entries = GuestbookEntry.objects.filter(blog=blog).select_related("author").order_by("-created_at", "-id")
-        return Response(paginate(entries, request, lambda e: guestbook_payload(e, request, blog.owner_id)))
+        def make_item(rows):
+            houses = authors_houses(rows)
+            return lambda e: guestbook_payload(e, request, blog.owner_id, houses)
+
+        return Response(paginate(entries, request, make_item=make_item))
 
     def post(self, request, address):
         if not request.user.is_authenticated:
@@ -318,12 +340,17 @@ class ManageCommentsView(APIView):
             .order_by("-created_at", "-id")
         )
 
-        def item(comment):
-            data = manage_item(comment_payload(comment, request, blog.owner_id), comment)
-            data["post"] = {"no": comment.post.post_no, "title": comment.post.title}
-            return data
+        def make_item(rows):
+            houses = authors_houses(rows)
 
-        return Response(paginate(comments, request, item))
+            def item(comment):
+                data = manage_item(comment_payload(comment, request, blog.owner_id, houses), comment)
+                data["post"] = {"no": comment.post.post_no, "title": comment.post.title}
+                return data
+
+            return item
+
+        return Response(paginate(comments, request, make_item=make_item))
 
 
 class ManageGuestbookView(APIView):
@@ -334,7 +361,74 @@ class ManageGuestbookView(APIView):
     def get(self, request, address):
         blog = owned_blog(address, request.user)
         entries = GuestbookEntry.objects.filter(blog=blog).select_related("author").order_by("-created_at", "-id")
-        return Response(
-            paginate(entries, request, lambda e: manage_item(comment_payload(e, request, blog.owner_id), e))
-        )
+        def make_item(rows):
+            houses = authors_houses(rows)
+            return lambda e: manage_item(comment_payload(e, request, blog.owner_id, houses), e)
 
+        return Response(paginate(entries, request, make_item=make_item))
+
+
+
+# ----- 한채 관리 › 이웃 (SUB-04): 주인이 내 한채의 이웃을 보고, 내보내고, 다시 받아 준다 -----
+# 이웃 공개 기록을 누가 보는지 주인이 정할 수 있게 한다. 내보낸 회원은 다시 받아 주기 전까지 이웃을 맺지 못한다
+class ManageNeighborsView(APIView):
+    """GET /api/blogs/{address}/manage/neighbors?page= — 주인: 내 한채의 이웃, 최근에 맺은 순."""
+
+    permission_classes = [IsMember]
+
+    def get(self, request, address):
+        blog = owned_blog(address, request.user)
+        subs = Subscription.objects.filter(blog=blog).select_related("subscriber").order_by("-created_at", "-id")
+        def make_item(rows):
+            houses = visible_houses(s.subscriber for s in rows)
+            return lambda s: {"id": s.pk, "user": user_summary(s.subscriber, request, houses), "since": s.created_at}
+
+        return Response(paginate(subs, request, make_item=make_item))
+
+
+class ManageNeighborDetailView(APIView):
+    """DELETE /api/blogs/{address}/manage/neighbors/{id} — 주인: 이웃을 내보낸다 (다시 맺지 못하게 막아 둔다)."""
+
+    permission_classes = [IsMember]
+
+    def delete(self, request, address, subscription_id):
+        blog = owned_blog(address, request.user)
+        sub = Subscription.objects.filter(blog=blog, pk=subscription_id).first()
+        if sub is None:
+            raise APIError(404, "NOT_FOUND", "찾는 이웃이 없어요. 이미 이웃을 끊었을 수 있어요.")
+        with transaction.atomic():
+            # 막는 표시를 먼저 남긴다. 거꾸로 하면 그 사이에 다시 맺을 수 있다 (SubscriptionView.put)
+            BlockedNeighbor.objects.get_or_create(blog=blog, user_id=sub.subscriber_id)
+            sub.delete()
+        return Response({"subscriber_count": Subscription.objects.filter(blog=blog).count()})
+
+
+class ManageBlockedNeighborsView(APIView):
+    """GET /api/blogs/{address}/manage/blocked-neighbors?page= — 주인: 내보낸 이웃, 최근에 내보낸 순."""
+
+    permission_classes = [IsMember]
+
+    def get(self, request, address):
+        blog = owned_blog(address, request.user)
+        blocked = BlockedNeighbor.objects.filter(blog=blog).select_related("user").order_by("-created_at", "-id")
+        def make_item(rows):
+            houses = visible_houses(b.user for b in rows)
+            return lambda b: {"id": b.pk, "user": user_summary(b.user, request, houses), "blocked_at": b.created_at}
+
+        return Response(paginate(blocked, request, make_item=make_item))
+
+
+class ManageBlockedNeighborDetailView(APIView):
+    """DELETE /api/blogs/{address}/manage/blocked-neighbors/{id} — 주인: 다시 받아 준다.
+
+    막는 표시만 지운다. 이웃은 그 회원이 다시 '이웃 맺기'를 눌러야 맺어진다.
+    """
+
+    permission_classes = [IsMember]
+
+    def delete(self, request, address, blocked_id):
+        blog = owned_blog(address, request.user)
+        deleted, _ = BlockedNeighbor.objects.filter(blog=blog, pk=blocked_id).delete()
+        if not deleted:
+            raise APIError(404, "NOT_FOUND", "내보낸 이웃 목록에 없어요.")
+        return Response(status=status.HTTP_204_NO_CONTENT)

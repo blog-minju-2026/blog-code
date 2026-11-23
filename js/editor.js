@@ -157,12 +157,59 @@ function createEditor(area, toolbar, options = {}) {
 
   area.addEventListener('input', updateEmptyState);
 
-  // 다른 사이트에서 복사한 글은 지저분한 서식이 따라오므로 허용한 태그만 남겨 붙인다
-  area.addEventListener('paste', (e) => {
+  const imageFiles = (list) => Array.from(list || []).filter((file) => file.type.startsWith('image/'));
+
+  // 붙여넣기
+  // - 화면 캡처 · 복사한 사진: 서버에 올려서 넣는다 (그대로 두면 본문에 남지 않는다. 본문 사진은 우리 서버에 올린 것만 받는다)
+  // - 다른 사이트에서 복사한 글: 지저분한 서식이 따라오므로 허용한 태그만 남겨 붙인다
+  area.addEventListener('paste', async (e) => {
     const html = e.clipboardData.getData('text/html');
+    const images = imageFiles(e.clipboardData.files);
+    // 글자가 있는 HTML 이면 글이 먼저다. 워드 · 엑셀은 복사한 글을 그림으로도 함께 주므로, 그림을 먼저 보면 글이 사진이 된다
+    const hasText = html && htmlToText(html);
+    if (images.length && !hasText && options.uploadImage) {
+      e.preventDefault();
+      saveSelection();
+      for (const file of images) {
+        await insertImageFile(file);
+      }
+      return;
+    }
     if (!html) return; // 일반 글자는 브라우저 기본 동작대로
     e.preventDefault();
     run('insertHTML', sanitizeHTML(html));
+  });
+
+  // 본문에 파일을 끌어다 놓기: 사진이면 놓은 자리에 올려서 넣는다.
+  // 막지 않으면 브라우저가 그 파일을 이 창에 열어 쓰던 화면을 떠난다
+  const draggingFiles = (e) => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes('Files');
+
+  function rangeAt(x, y) {
+    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+    if (document.caretPositionFromPoint) {
+      const position = document.caretPositionFromPoint(x, y);
+      if (!position) return null;
+      const range = document.createRange();
+      range.setStart(position.offsetNode, position.offset);
+      range.collapse(true);
+      return range;
+    }
+    return null;
+  }
+
+  area.addEventListener('dragover', (e) => {
+    if (draggingFiles(e)) e.preventDefault();
+  });
+
+  area.addEventListener('drop', async (e) => {
+    if (!draggingFiles(e)) return; // 본문 안에서 글자 · 사진을 옮기는 것은 브라우저 기본 동작대로
+    e.preventDefault();
+    if (!options.uploadImage) return;
+    const range = rangeAt(e.clientX, e.clientY);
+    if (range && area.contains(range.startContainer)) savedRange = range;
+    for (const file of Array.from(e.dataTransfer.files)) {
+      await insertImageFile(file); // 사진이 아니면 안내만 하고 넘어간다
+    }
   });
 
   // 비어 있을 때 첫 줄이 <p>로 시작하도록

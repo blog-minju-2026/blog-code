@@ -56,7 +56,7 @@ DB_PORT=3306
 | --- | --- |
 | 개발 서버 | `python manage.py runserver` → http://127.0.0.1:8000/django-admin/ |
 | 운영자 계정 만들기 | `python manage.py createsuperuser` |
-| 테스트 | `python manage.py test apps` |
+| 테스트 | `python manage.py test apps` (PR 을 올리면 GitHub Actions 가 같은 테스트를 돌리고, 통과해야 배포된다: `.github/workflows/test.yml`) |
 | 모델을 바꾼 뒤 | `python manage.py makemigrations` → `python manage.py migrate` |
 
 ## 앱 구성
@@ -66,9 +66,17 @@ DB_PORT=3306
 | `apps.accounts` | users (+ allauth 의 account_emailaddress, socialaccount_socialaccount) |
 | `apps.blogs` | blogs |
 | `apps.posts` | topics, categories, tags, posts, post_tags, images, post_images, post_views |
-| `apps.community` | comments, guestbook_entries, post_likes, subscriptions |
+| `apps.community` | comments, guestbook_entries, post_likes, subscriptions, blog_blocked_neighbors (내보낸 이웃) |
 | `apps.rankings` | ranking_snapshots, ranking_entries |
 | `apps.moderation` | user_sanctions, admin_logs |
+
+## 요청마다 하는 일 (미들웨어)
+
+`apps/common/middleware.py` 에 모여 있다.
+
+- **보안 헤더(CSP)**: 우리 파일의 스크립트만 실행된다. 화면 파일(`*.html`)에 인라인 `<script>` 나 `onclick=` 같은 속성을 넣으면 **조용히 동작하지 않는다.** 코드는 `js/` 파일에 두고 `addEventListener` 로 건다. 다른 사이트의 글꼴 · 스크립트를 새로 쓰려면 `CONTENT_SECURITY_POLICY` 에 그 주소를 더한다 (테스트 `test_screens_have_no_inline_script` 가 인라인 코드를 잡는다).
+- **세션**: 세션을 읽지 않은 요청(화면 파일 · css · js · 사진)은 세션을 DB 에 다시 쓰지 않는다. 로그인은 화면이 열릴 때마다 부르는 `/api/auth/me` 가 이어 준다.
+- **이용 제한**: `/api/` · `/accounts/` · `/django-admin/` 요청에서 확인한다. 화면 파일은 누구에게나 같으므로 보지 않는다.
 
 ## ERD와 다른 점
 

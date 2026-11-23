@@ -8,8 +8,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FRONTEND_DIR=/app/frontend
 
 # mysqlclient 를 빌드하려면 MySQL 클라이언트 라이브러리가 필요하다
+# default-mysql-client: 백업(deploy/backup.sh)이 컨테이너 안의 mysqldump 로 DB 를 떠 간다
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential default-libmysqlclient-dev pkg-config \
+    && apt-get install -y --no-install-recommends build-essential default-libmysqlclient-dev pkg-config default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -27,5 +28,7 @@ RUN DJANGO_SECRET_KEY=collectstatic-only python manage.py collectstatic --noinpu
 EXPOSE 8000
 # 컨테이너가 뜰 때마다 DB 를 최신 마이그레이션으로 맞춘 뒤 서버를 켠다.
 # 포트는 PORT 로 바꿀 수 있다 (학교 서버는 호스트 네트워크로 띄워 APP_PORT 에서 바로 받는다)
+# 받는 주소는 BIND_HOST 로 바꿀 수 있다. 학교 서버는 127.0.0.1 로 좁혀 같은 서버의 nginx 만 닿게 한다 (deploy.sh).
+# 기본값 0.0.0.0 은 docker compose · docker run -p 처럼 컨테이너 밖에서 포트를 이어 줄 때 필요하다
 # exec: gunicorn 이 docker stop 의 신호를 직접 받아, 하던 요청을 마친 뒤 내려간다 (deploy.sh)
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3 --access-logfile - --error-logfile -"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi:application --bind ${BIND_HOST:-0.0.0.0}:${PORT:-8000} --workers 3 --access-logfile - --error-logfile -"]

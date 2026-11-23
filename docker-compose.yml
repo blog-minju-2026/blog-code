@@ -4,12 +4,14 @@
 #   docker compose down            → 끄기 (DB · 사진은 남는다)
 #   docker compose down -v         → 끄고 DB · 사진까지 지우기 (빈 DB 로 다시 시작)
 #
-# 학교 서버와 같은 것: 배포 이미지(Dockerfile), DEBUG=0, gunicorn, 뜰 때마다 migrate, MySQL 8.0.41(빈 DB에서 시작)
+# 학교 서버와 같은 것: 배포 이미지(Dockerfile), DEBUG=0, gunicorn, 뜰 때마다 migrate, MySQL 8.0.41(빈 DB에서 시작, 정렬 규칙 utf8mb4_0900_as_ci)
 # 다른 것: DB 가 같은 노트북 안에 있고, 도메인 없이 localhost 로 연다
 services:
   db:
     image: mysql:8.0.41
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    # 정렬 규칙은 명세(ERD REQ-001) · 테스트 DB 와 같은 as_ci: 영문 대소문자는 같게, 악센트는 다르게 본다 (닉네임 · 태그 중복 판단).
+    # 이미 만든 DB 에는 적용되지 않는다. 바꾸려면 docker compose down -v 로 지우고 다시 띄운다
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_as_ci
     environment:
       MYSQL_ROOT_PASSWORD: local-root-only
       MYSQL_DATABASE: hanchae

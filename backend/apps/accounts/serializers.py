@@ -18,14 +18,36 @@ def alive_blog_address(user):
     return blog.address if blog else None
 
 
-def user_summary(user, request):
-    """UserSummary (API 명세서 3.1). 탈퇴한 회원은 '떠난 사람'."""
+def visible_houses(users):
+    """여러 회원의 '다른 사람이 갈 수 있는 한채'를 한 번에 찾는다: {회원 id: {"address", "name"}}.
+
+    댓글 · 방명록 목록처럼 여러 사람을 한꺼번에 보일 때 쓴다. 한 사람씩 물으면 줄마다 쿼리가 하나씩 는다.
+    """
+    from apps.blogs.models import Blog
+    from apps.common.access import visible_blogs
+
+    ids = {user.pk for user in users if user is not None and user.is_active}
+    if not ids:
+        return {}
+    rows = visible_blogs(Blog.objects.filter(owner_id__in=ids)).values_list("owner_id", "address", "name")
+    return {owner_id: {"address": address, "name": name} for owner_id, address, name in rows}
+
+
+def user_summary(user, request, houses=None):
+    """UserSummary (API 명세서 3.1). 탈퇴한 회원은 '떠난 사람'.
+
+    houses: visible_houses() 로 미리 찾아 둔 한채. 주면 회원마다 따로 묻지 않는다.
+    """
     if user is None or not user.is_active:
         return {"nickname": None, "profile_image_url": None, "blog_address": None, "withdrawn": True}
+    if houses is not None:
+        blog_address = houses[user.pk]["address"] if user.pk in houses else None
+    else:
+        blog_address = alive_blog_address(user)
     return {
         "nickname": user.nickname,
         "profile_image_url": absolute_url(request, user.profile_image),
-        "blog_address": alive_blog_address(user),
+        "blog_address": blog_address,
     }
 
 
@@ -49,8 +71,13 @@ PASSWORD_MESSAGES = {
 }
 
 
+MAX_PASSWORD_LENGTH = 128
+
+
 def check_new_password(value, user=None):
     """새로 정하는 비밀번호를 검사한다. user 를 주면 이메일 · 닉네임과 비슷한지도 본다."""
+    if len(value) > MAX_PASSWORD_LENGTH:
+        raise serializers.ValidationError(f"비밀번호는 {MAX_PASSWORD_LENGTH}자까지 쓸 수 있어요.")
     try:
         validate_password(value, user)
     except DjangoValidationError as e:
@@ -142,6 +169,17 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()
     password = serializers.CharField(
+        trim_whitespace=False, error_messages={"blank": "새 비밀번호를 써 주세요.", "required": "새 비밀번호를 써 주세요."}
+    )
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    """로그인한 채로 비밀번호 바꾸기: 지금 비밀번호와 새 비밀번호."""
+
+    current_password = serializers.CharField(
+        trim_whitespace=False, error_messages={"blank": "지금 비밀번호를 써 주세요.", "required": "지금 비밀번호를 써 주세요."}
+    )
+    new_password = serializers.CharField(
         trim_whitespace=False, error_messages={"blank": "새 비밀번호를 써 주세요.", "required": "새 비밀번호를 써 주세요."}
     )
 
